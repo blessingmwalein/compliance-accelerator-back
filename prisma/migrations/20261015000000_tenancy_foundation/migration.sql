@@ -1,0 +1,156 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
+-- CreateEnum
+CREATE TYPE "membership_role" AS ENUM ('COMPANY_OWNER', 'COMPANY_ADMIN', 'COMPLIANCE_MANAGER', 'COURSE_ADMINISTRATOR', 'STANDARD_USER', 'READ_ONLY');
+
+-- CreateEnum
+CREATE TYPE "membership_status" AS ENUM ('ACTIVE', 'DEACTIVATED');
+
+-- CreateEnum
+CREATE TYPE "audit_actor_type" AS ENUM ('USER', 'SYSTEM');
+
+-- CreateEnum
+CREATE TYPE "audit_outcome" AS ENUM ('SUCCESS', 'DENIED', 'FAILURE');
+
+-- CreateTable
+CREATE TABLE "organisations" (
+    "id" UUID NOT NULL,
+    "name" TEXT NOT NULL,
+    "timezone" TEXT NOT NULL,
+    "version" INTEGER NOT NULL DEFAULT 1,
+    "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT "organisations_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "users" (
+    "id" UUID NOT NULL,
+    "email" TEXT NOT NULL,
+    "full_name" TEXT NOT NULL,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "version" INTEGER NOT NULL DEFAULT 1,
+    "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "memberships" (
+    "id" UUID NOT NULL,
+    "organisation_id" UUID NOT NULL,
+    "user_id" UUID NOT NULL,
+    "role" "membership_role" NOT NULL,
+    "status" "membership_status" NOT NULL DEFAULT 'ACTIVE',
+    "version" INTEGER NOT NULL DEFAULT 1,
+    "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT "memberships_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "audit_events" (
+    "id" UUID NOT NULL,
+    "organisation_id" UUID NOT NULL,
+    "occurred_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "actor_type" "audit_actor_type" NOT NULL,
+    "actor_user_id" UUID,
+    "action" TEXT NOT NULL,
+    "entity_type" TEXT NOT NULL,
+    "entity_id" TEXT,
+    "entity_label" TEXT,
+    "outcome" "audit_outcome" NOT NULL DEFAULT 'SUCCESS',
+    "request_id" TEXT,
+    "changes" JSONB,
+
+    CONSTRAINT "audit_events_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "idempotency_keys" (
+    "id" UUID NOT NULL,
+    "organisation_id" UUID NOT NULL,
+    "key" TEXT NOT NULL,
+    "endpoint" TEXT NOT NULL,
+    "request_hash" TEXT NOT NULL,
+    "response_status" INTEGER,
+    "response_body" JSONB,
+    "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expires_at" TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT "idempotency_keys_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
+CREATE INDEX "memberships_user_id_idx" ON "memberships"("user_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "memberships_organisation_id_id_key" ON "memberships"("organisation_id", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "memberships_organisation_id_user_id_key" ON "memberships"("organisation_id", "user_id");
+
+-- CreateIndex
+CREATE INDEX "audit_events_organisation_id_occurred_at_idx" ON "audit_events"("organisation_id", "occurred_at" DESC);
+
+-- CreateIndex
+CREATE INDEX "audit_events_organisation_id_entity_type_entity_id_idx" ON "audit_events"("organisation_id", "entity_type", "entity_id");
+
+-- CreateIndex
+CREATE INDEX "audit_events_organisation_id_actor_user_id_occurred_at_idx" ON "audit_events"("organisation_id", "actor_user_id", "occurred_at" DESC);
+
+-- CreateIndex
+CREATE INDEX "audit_events_organisation_id_action_occurred_at_idx" ON "audit_events"("organisation_id", "action", "occurred_at" DESC);
+
+-- CreateIndex
+CREATE INDEX "idempotency_keys_expires_at_idx" ON "idempotency_keys"("expires_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "idempotency_keys_organisation_id_endpoint_key_key" ON "idempotency_keys"("organisation_id", "endpoint", "key");
+
+-- AddForeignKey
+ALTER TABLE "memberships" ADD CONSTRAINT "memberships_organisation_id_fkey" FOREIGN KEY ("organisation_id") REFERENCES "organisations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "memberships" ADD CONSTRAINT "memberships_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "audit_events" ADD CONSTRAINT "audit_events_organisation_id_fkey" FOREIGN KEY ("organisation_id") REFERENCES "organisations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "audit_events" ADD CONSTRAINT "audit_events_actor_user_id_fkey" FOREIGN KEY ("actor_user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "idempotency_keys" ADD CONSTRAINT "idempotency_keys_organisation_id_fkey" FOREIGN KEY ("organisation_id") REFERENCES "organisations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- ---------------------------------------------------------------------------------------------
+-- Hand-written additions (not generated by Prisma; they are not part of schema.prisma).
+-- ---------------------------------------------------------------------------------------------
+
+-- Identity hygiene: emails are stored lower-case so the plain UNIQUE index is case-insensitive.
+ALTER TABLE "users" ADD CONSTRAINT "users_email_lowercase_check" CHECK ("email" = lower("email"));
+ALTER TABLE "users" ADD CONSTRAINT "users_email_not_blank_check" CHECK (length(btrim("email")) > 0);
+ALTER TABLE "organisations" ADD CONSTRAINT "organisations_name_not_blank_check" CHECK (length(btrim("name")) > 0);
+ALTER TABLE "organisations" ADD CONSTRAINT "organisations_timezone_not_blank_check" CHECK (length(btrim("timezone")) > 0);
+
+-- Audit immutability: audit_events is append-only. This trigger rejects UPDATE and DELETE for EVERY
+-- role, including the table owner; prisma/sql/runtime-role.sql additionally withholds the privileges
+-- (UPDATE, DELETE, TRUNCATE) from the runtime role. TRUNCATE is deliberately not trapped here so the
+-- integration-test branch can be reset by its owner role; the runtime role never receives it.
+CREATE FUNCTION "audit_events_reject_mutation"() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'audit_events is append-only (% is not allowed)', TG_OP;
+END;
+$$;
+
+CREATE TRIGGER "audit_events_no_update_delete"
+BEFORE UPDATE OR DELETE ON "audit_events"
+FOR EACH ROW EXECUTE FUNCTION "audit_events_reject_mutation"();

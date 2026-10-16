@@ -1,0 +1,1020 @@
+{
+  "schema": 1,
+  "framework": "GDPR",
+  "version": {
+    "label": "GDPR (EU) 2016/679",
+    "licenceClass": "OPEN_REUSE",
+    "effectiveFrom": "2018-05-25",
+    "status": "draft",
+    "source": {
+      "url": "https://publications.europa.eu/resource/celex/32016R0679",
+      "file": "source.xhtml",
+      "citation": "Regulation (EU) 2016/679 of the European Parliament and of the Council of 27 April 2016 (General Data Protection Regulation), OJ L 119, 4.5.2016. English text as published by the EU Publications Office (CELEX 32016R0679); EU legal acts may be reused with attribution. Only identifiers and headings are stored.",
+      "retrievedAt": "2026-10-16T12:08:57.350Z",
+      "sha256": "sha256:962539af03738bf552319ff4ce42d69e5f95a576307c4dfed7bf87e81b646b9d"
+    },
+    "contentHash": "sha256:1074bfc0a38a848f3dfe2136655bcab57bcbb7be00d3e5e5f4181d4c8223d226",
+    "verifiedBy": null,
+    "verifiedAt": null
+  },
+  "extraction": {
+    "tool": "scripts/frameworks/extract-gdpr.mjs",
+    "counts": {
+      "chapter": 11,
+      "article": 99
+    }
+  },
+  "requirements": [
+    {
+      "ref": "Chapter I",
+      "kind": "chapter",
+      "title": "General provisions",
+      "description": null,
+      "parent": null,
+      "textSource": "VERBATIM",
+      "sortOrder": 0
+    },
+    {
+      "ref": "Art. 1",
+      "kind": "article",
+      "title": "Subject-matter and objectives",
+      "description": null,
+      "parent": "Chapter I",
+      "textSource": "VERBATIM",
+      "sortOrder": 1
+    },
+    {
+      "ref": "Art. 2",
+      "kind": "article",
+      "title": "Material scope",
+      "description": null,
+      "parent": "Chapter I",
+      "textSource": "VERBATIM",
+      "sortOrder": 2
+    },
+    {
+      "ref": "Art. 3",
+      "kind": "article",
+      "title": "Territorial scope",
+      "description": null,
+      "parent": "Chapter I",
+      "textSource": "VERBATIM",
+      "sortOrder": 3
+    },
+    {
+      "ref": "Art. 4",
+      "kind": "article",
+      "title": "Definitions",
+      "description": null,
+      "parent": "Chapter I",
+      "textSource": "VERBATIM",
+      "sortOrder": 4
+    },
+    {
+      "ref": "Chapter II",
+      "kind": "chapter",
+      "title": "Principles",
+      "description": null,
+      "parent": null,
+      "textSource": "VERBATIM",
+      "sortOrder": 5
+    },
+    {
+      "ref": "Art. 5",
+      "kind": "article",
+      "title": "Principles relating to processing of personal data",
+      "description": null,
+      "parent": "Chapter II",
+      "textSource": "VERBATIM",
+      "sortOrder": 6
+    },
+    {
+      "ref": "Art. 6",
+      "kind": "article",
+      "title": "Lawfulness of processing",
+      "description": null,
+      "parent": "Chapter II",
+      "textSource": "VERBATIM",
+      "sortOrder": 7
+    },
+    {
+      "ref": "Art. 7",
+      "kind": "article",
+      "title": "Conditions for consent",
+      "description": null,
+      "parent": "Chapter II",
+      "textSource": "VERBATIM",
+      "sortOrder": 8
+    },
+    {
+      "ref": "Art. 8",
+      "kind": "article",
+      "title": "Conditions applicable to child's consent in relation to information society services",
+      "description": null,
+      "parent": "Chapter II",
+      "textSource": "VERBATIM",
+      "sortOrder": 9
+    },
+    {
+      "ref": "Art. 9",
+      "kind": "article",
+      "title": "Processing of special categories of personal data",
+      "description": null,
+      "parent": "Chapter II",
+      "textSource": "VERBATIM",
+      "sortOrder": 10
+    },
+    {
+      "ref": "Art. 10",
+      "kind": "article",
+      "title": "Processing of personal data relating to criminal convictions and offences",
+      "description": null,
+      "parent": "Chapter II",
+      "textSource": "VERBATIM",
+      "sortOrder": 11
+    },
+    {
+      "ref": "Art. 11",
+      "kind": "article",
+      "title": "Processing which does not require identification",
+      "description": null,
+      "parent": "Chapter II",
+      "textSource": "VERBATIM",
+      "sortOrder": 12
+    },
+    {
+      "ref": "Chapter III",
+      "kind": "chapter",
+      "title": "Rights of the data subject",
+      "description": null,
+      "parent": null,
+      "textSource": "VERBATIM",
+      "sortOrder": 13
+    },
+    {
+      "ref": "Art. 12",
+      "kind": "article",
+      "title": "Transparent information, communication and modalities for the exercise of the rights of the data subject",
+      "description": null,
+      "parent": "Chapter III",
+      "textSource": "VERBATIM",
+      "sortOrder": 14
+    },
+    {
+      "ref": "Art. 13",
+      "kind": "article",
+      "title": "Information to be provided where personal data are collected from the data subject",
+      "description": null,
+      "parent": "Chapter III",
+      "textSource": "VERBATIM",
+      "sortOrder": 15
+    },
+    {
+      "ref": "Art. 14",
+      "kind": "article",
+      "title": "Information to be provided where personal data have not been obtained from the data subject",
+      "description": null,
+      "parent": "Chapter III",
+      "textSource": "VERBATIM",
+      "sortOrder": 16
+    },
+    {
+      "ref": "Art. 15",
+      "kind": "article",
+      "title": "Right of access by the data subject",
+      "description": null,
+      "parent": "Chapter III",
+      "textSource": "VERBATIM",
+      "sortOrder": 17
+    },
+    {
+      "ref": "Art. 16",
+      "kind": "article",
+      "title": "Right to rectification",
+      "description": null,
+      "parent": "Chapter III",
+      "textSource": "VERBATIM",
+      "sortOrder": 18
+    },
+    {
+      "ref": "Art. 17",
+      "kind": "article",
+      "title": "Right to erasure (‘right to be forgotten’)",
+      "description": null,
+      "parent": "Chapter III",
+      "textSource": "VERBATIM",
+      "sortOrder": 19
+    },
+    {
+      "ref": "Art. 18",
+      "kind": "article",
+      "title": "Right to restriction of processing",
+      "description": null,
+      "parent": "Chapter III",
+      "textSource": "VERBATIM",
+      "sortOrder": 20
+    },
+    {
+      "ref": "Art. 19",
+      "kind": "article",
+      "title": "Notification obligation regarding rectification or erasure of personal data or restriction of processing",
+      "description": null,
+      "parent": "Chapter III",
+      "textSource": "VERBATIM",
+      "sortOrder": 21
+    },
+    {
+      "ref": "Art. 20",
+      "kind": "article",
+      "title": "Right to data portability",
+      "description": null,
+      "parent": "Chapter III",
+      "textSource": "VERBATIM",
+      "sortOrder": 22
+    },
+    {
+      "ref": "Art. 21",
+      "kind": "article",
+      "title": "Right to object",
+      "description": null,
+      "parent": "Chapter III",
+      "textSource": "VERBATIM",
+      "sortOrder": 23
+    },
+    {
+      "ref": "Art. 22",
+      "kind": "article",
+      "title": "Automated individual decision-making, including profiling",
+      "description": null,
+      "parent": "Chapter III",
+      "textSource": "VERBATIM",
+      "sortOrder": 24
+    },
+    {
+      "ref": "Art. 23",
+      "kind": "article",
+      "title": "Restrictions",
+      "description": null,
+      "parent": "Chapter III",
+      "textSource": "VERBATIM",
+      "sortOrder": 25
+    },
+    {
+      "ref": "Chapter IV",
+      "kind": "chapter",
+      "title": "Controller and processor",
+      "description": null,
+      "parent": null,
+      "textSource": "VERBATIM",
+      "sortOrder": 26
+    },
+    {
+      "ref": "Art. 24",
+      "kind": "article",
+      "title": "Responsibility of the controller",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 27
+    },
+    {
+      "ref": "Art. 25",
+      "kind": "article",
+      "title": "Data protection by design and by default",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 28
+    },
+    {
+      "ref": "Art. 26",
+      "kind": "article",
+      "title": "Joint controllers",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 29
+    },
+    {
+      "ref": "Art. 27",
+      "kind": "article",
+      "title": "Representatives of controllers or processors not established in the Union",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 30
+    },
+    {
+      "ref": "Art. 28",
+      "kind": "article",
+      "title": "Processor",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 31
+    },
+    {
+      "ref": "Art. 29",
+      "kind": "article",
+      "title": "Processing under the authority of the controller or processor",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 32
+    },
+    {
+      "ref": "Art. 30",
+      "kind": "article",
+      "title": "Records of processing activities",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 33
+    },
+    {
+      "ref": "Art. 31",
+      "kind": "article",
+      "title": "Cooperation with the supervisory authority",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 34
+    },
+    {
+      "ref": "Art. 32",
+      "kind": "article",
+      "title": "Security of processing",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 35
+    },
+    {
+      "ref": "Art. 33",
+      "kind": "article",
+      "title": "Notification of a personal data breach to the supervisory authority",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 36
+    },
+    {
+      "ref": "Art. 34",
+      "kind": "article",
+      "title": "Communication of a personal data breach to the data subject",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 37
+    },
+    {
+      "ref": "Art. 35",
+      "kind": "article",
+      "title": "Data protection impact assessment",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 38
+    },
+    {
+      "ref": "Art. 36",
+      "kind": "article",
+      "title": "Prior consultation",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 39
+    },
+    {
+      "ref": "Art. 37",
+      "kind": "article",
+      "title": "Designation of the data protection officer",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 40
+    },
+    {
+      "ref": "Art. 38",
+      "kind": "article",
+      "title": "Position of the data protection officer",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 41
+    },
+    {
+      "ref": "Art. 39",
+      "kind": "article",
+      "title": "Tasks of the data protection officer",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 42
+    },
+    {
+      "ref": "Art. 40",
+      "kind": "article",
+      "title": "Codes of conduct",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 43
+    },
+    {
+      "ref": "Art. 41",
+      "kind": "article",
+      "title": "Monitoring of approved codes of conduct",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 44
+    },
+    {
+      "ref": "Art. 42",
+      "kind": "article",
+      "title": "Certification",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 45
+    },
+    {
+      "ref": "Art. 43",
+      "kind": "article",
+      "title": "Certification bodies",
+      "description": null,
+      "parent": "Chapter IV",
+      "textSource": "VERBATIM",
+      "sortOrder": 46
+    },
+    {
+      "ref": "Chapter V",
+      "kind": "chapter",
+      "title": "Transfers of personal data to third countries or international organisations",
+      "description": null,
+      "parent": null,
+      "textSource": "VERBATIM",
+      "sortOrder": 47
+    },
+    {
+      "ref": "Art. 44",
+      "kind": "article",
+      "title": "General principle for transfers",
+      "description": null,
+      "parent": "Chapter V",
+      "textSource": "VERBATIM",
+      "sortOrder": 48
+    },
+    {
+      "ref": "Art. 45",
+      "kind": "article",
+      "title": "Transfers on the basis of an adequacy decision",
+      "description": null,
+      "parent": "Chapter V",
+      "textSource": "VERBATIM",
+      "sortOrder": 49
+    },
+    {
+      "ref": "Art. 46",
+      "kind": "article",
+      "title": "Transfers subject to appropriate safeguards",
+      "description": null,
+      "parent": "Chapter V",
+      "textSource": "VERBATIM",
+      "sortOrder": 50
+    },
+    {
+      "ref": "Art. 47",
+      "kind": "article",
+      "title": "Binding corporate rules",
+      "description": null,
+      "parent": "Chapter V",
+      "textSource": "VERBATIM",
+      "sortOrder": 51
+    },
+    {
+      "ref": "Art. 48",
+      "kind": "article",
+      "title": "Transfers or disclosures not authorised by Union law",
+      "description": null,
+      "parent": "Chapter V",
+      "textSource": "VERBATIM",
+      "sortOrder": 52
+    },
+    {
+      "ref": "Art. 49",
+      "kind": "article",
+      "title": "Derogations for specific situations",
+      "description": null,
+      "parent": "Chapter V",
+      "textSource": "VERBATIM",
+      "sortOrder": 53
+    },
+    {
+      "ref": "Art. 50",
+      "kind": "article",
+      "title": "International cooperation for the protection of personal data",
+      "description": null,
+      "parent": "Chapter V",
+      "textSource": "VERBATIM",
+      "sortOrder": 54
+    },
+    {
+      "ref": "Chapter VI",
+      "kind": "chapter",
+      "title": "Independent supervisory authorities",
+      "description": null,
+      "parent": null,
+      "textSource": "VERBATIM",
+      "sortOrder": 55
+    },
+    {
+      "ref": "Art. 51",
+      "kind": "article",
+      "title": "Supervisory authority",
+      "description": null,
+      "parent": "Chapter VI",
+      "textSource": "VERBATIM",
+      "sortOrder": 56
+    },
+    {
+      "ref": "Art. 52",
+      "kind": "article",
+      "title": "Independence",
+      "description": null,
+      "parent": "Chapter VI",
+      "textSource": "VERBATIM",
+      "sortOrder": 57
+    },
+    {
+      "ref": "Art. 53",
+      "kind": "article",
+      "title": "General conditions for the members of the supervisory authority",
+      "description": null,
+      "parent": "Chapter VI",
+      "textSource": "VERBATIM",
+      "sortOrder": 58
+    },
+    {
+      "ref": "Art. 54",
+      "kind": "article",
+      "title": "Rules on the establishment of the supervisory authority",
+      "description": null,
+      "parent": "Chapter VI",
+      "textSource": "VERBATIM",
+      "sortOrder": 59
+    },
+    {
+      "ref": "Art. 55",
+      "kind": "article",
+      "title": "Competence",
+      "description": null,
+      "parent": "Chapter VI",
+      "textSource": "VERBATIM",
+      "sortOrder": 60
+    },
+    {
+      "ref": "Art. 56",
+      "kind": "article",
+      "title": "Competence of the lead supervisory authority",
+      "description": null,
+      "parent": "Chapter VI",
+      "textSource": "VERBATIM",
+      "sortOrder": 61
+    },
+    {
+      "ref": "Art. 57",
+      "kind": "article",
+      "title": "Tasks",
+      "description": null,
+      "parent": "Chapter VI",
+      "textSource": "VERBATIM",
+      "sortOrder": 62
+    },
+    {
+      "ref": "Art. 58",
+      "kind": "article",
+      "title": "Powers",
+      "description": null,
+      "parent": "Chapter VI",
+      "textSource": "VERBATIM",
+      "sortOrder": 63
+    },
+    {
+      "ref": "Art. 59",
+      "kind": "article",
+      "title": "Activity reports",
+      "description": null,
+      "parent": "Chapter VI",
+      "textSource": "VERBATIM",
+      "sortOrder": 64
+    },
+    {
+      "ref": "Chapter VII",
+      "kind": "chapter",
+      "title": "Cooperation and consistency",
+      "description": null,
+      "parent": null,
+      "textSource": "VERBATIM",
+      "sortOrder": 65
+    },
+    {
+      "ref": "Art. 60",
+      "kind": "article",
+      "title": "Cooperation between the lead supervisory authority and the other supervisory authorities concerned",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 66
+    },
+    {
+      "ref": "Art. 61",
+      "kind": "article",
+      "title": "Mutual assistance",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 67
+    },
+    {
+      "ref": "Art. 62",
+      "kind": "article",
+      "title": "Joint operations of supervisory authorities",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 68
+    },
+    {
+      "ref": "Art. 63",
+      "kind": "article",
+      "title": "Consistency mechanism",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 69
+    },
+    {
+      "ref": "Art. 64",
+      "kind": "article",
+      "title": "Opinion of the Board",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 70
+    },
+    {
+      "ref": "Art. 65",
+      "kind": "article",
+      "title": "Dispute resolution by the Board",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 71
+    },
+    {
+      "ref": "Art. 66",
+      "kind": "article",
+      "title": "Urgency procedure",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 72
+    },
+    {
+      "ref": "Art. 67",
+      "kind": "article",
+      "title": "Exchange of information",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 73
+    },
+    {
+      "ref": "Art. 68",
+      "kind": "article",
+      "title": "European Data Protection Board",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 74
+    },
+    {
+      "ref": "Art. 69",
+      "kind": "article",
+      "title": "Independence",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 75
+    },
+    {
+      "ref": "Art. 70",
+      "kind": "article",
+      "title": "Tasks of the Board",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 76
+    },
+    {
+      "ref": "Art. 71",
+      "kind": "article",
+      "title": "Reports",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 77
+    },
+    {
+      "ref": "Art. 72",
+      "kind": "article",
+      "title": "Procedure",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 78
+    },
+    {
+      "ref": "Art. 73",
+      "kind": "article",
+      "title": "Chair",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 79
+    },
+    {
+      "ref": "Art. 74",
+      "kind": "article",
+      "title": "Tasks of the Chair",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 80
+    },
+    {
+      "ref": "Art. 75",
+      "kind": "article",
+      "title": "Secretariat",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 81
+    },
+    {
+      "ref": "Art. 76",
+      "kind": "article",
+      "title": "Confidentiality",
+      "description": null,
+      "parent": "Chapter VII",
+      "textSource": "VERBATIM",
+      "sortOrder": 82
+    },
+    {
+      "ref": "Chapter VIII",
+      "kind": "chapter",
+      "title": "Remedies, liability and penalties",
+      "description": null,
+      "parent": null,
+      "textSource": "VERBATIM",
+      "sortOrder": 83
+    },
+    {
+      "ref": "Art. 77",
+      "kind": "article",
+      "title": "Right to lodge a complaint with a supervisory authority",
+      "description": null,
+      "parent": "Chapter VIII",
+      "textSource": "VERBATIM",
+      "sortOrder": 84
+    },
+    {
+      "ref": "Art. 78",
+      "kind": "article",
+      "title": "Right to an effective judicial remedy against a supervisory authority",
+      "description": null,
+      "parent": "Chapter VIII",
+      "textSource": "VERBATIM",
+      "sortOrder": 85
+    },
+    {
+      "ref": "Art. 79",
+      "kind": "article",
+      "title": "Right to an effective judicial remedy against a controller or processor",
+      "description": null,
+      "parent": "Chapter VIII",
+      "textSource": "VERBATIM",
+      "sortOrder": 86
+    },
+    {
+      "ref": "Art. 80",
+      "kind": "article",
+      "title": "Representation of data subjects",
+      "description": null,
+      "parent": "Chapter VIII",
+      "textSource": "VERBATIM",
+      "sortOrder": 87
+    },
+    {
+      "ref": "Art. 81",
+      "kind": "article",
+      "title": "Suspension of proceedings",
+      "description": null,
+      "parent": "Chapter VIII",
+      "textSource": "VERBATIM",
+      "sortOrder": 88
+    },
+    {
+      "ref": "Art. 82",
+      "kind": "article",
+      "title": "Right to compensation and liability",
+      "description": null,
+      "parent": "Chapter VIII",
+      "textSource": "VERBATIM",
+      "sortOrder": 89
+    },
+    {
+      "ref": "Art. 83",
+      "kind": "article",
+      "title": "General conditions for imposing administrative fines",
+      "description": null,
+      "parent": "Chapter VIII",
+      "textSource": "VERBATIM",
+      "sortOrder": 90
+    },
+    {
+      "ref": "Art. 84",
+      "kind": "article",
+      "title": "Penalties",
+      "description": null,
+      "parent": "Chapter VIII",
+      "textSource": "VERBATIM",
+      "sortOrder": 91
+    },
+    {
+      "ref": "Chapter IX",
+      "kind": "chapter",
+      "title": "Provisions relating to specific processing situations",
+      "description": null,
+      "parent": null,
+      "textSource": "VERBATIM",
+      "sortOrder": 92
+    },
+    {
+      "ref": "Art. 85",
+      "kind": "article",
+      "title": "Processing and freedom of expression and information",
+      "description": null,
+      "parent": "Chapter IX",
+      "textSource": "VERBATIM",
+      "sortOrder": 93
+    },
+    {
+      "ref": "Art. 86",
+      "kind": "article",
+      "title": "Processing and public access to official documents",
+      "description": null,
+      "parent": "Chapter IX",
+      "textSource": "VERBATIM",
+      "sortOrder": 94
+    },
+    {
+      "ref": "Art. 87",
+      "kind": "article",
+      "title": "Processing of the national identification number",
+      "description": null,
+      "parent": "Chapter IX",
+      "textSource": "VERBATIM",
+      "sortOrder": 95
+    },
+    {
+      "ref": "Art. 88",
+      "kind": "article",
+      "title": "Processing in the context of employment",
+      "description": null,
+      "parent": "Chapter IX",
+      "textSource": "VERBATIM",
+      "sortOrder": 96
+    },
+    {
+      "ref": "Art. 89",
+      "kind": "article",
+      "title": "Safeguards and derogations relating to processing for archiving purposes in the public interest, scientific or historical research purposes or statistical purposes",
+      "description": null,
+      "parent": "Chapter IX",
+      "textSource": "VERBATIM",
+      "sortOrder": 97
+    },
+    {
+      "ref": "Art. 90",
+      "kind": "article",
+      "title": "Obligations of secrecy",
+      "description": null,
+      "parent": "Chapter IX",
+      "textSource": "VERBATIM",
+      "sortOrder": 98
+    },
+    {
+      "ref": "Art. 91",
+      "kind": "article",
+      "title": "Existing data protection rules of churches and religious associations",
+      "description": null,
+      "parent": "Chapter IX",
+      "textSource": "VERBATIM",
+      "sortOrder": 99
+    },
+    {
+      "ref": "Chapter X",
+      "kind": "chapter",
+      "title": "Delegated acts and implementing acts",
+      "description": null,
+      "parent": null,
+      "textSource": "VERBATIM",
+      "sortOrder": 100
+    },
+    {
+      "ref": "Art. 92",
+      "kind": "article",
+      "title": "Exercise of the delegation",
+      "description": null,
+      "parent": "Chapter X",
+      "textSource": "VERBATIM",
+      "sortOrder": 101
+    },
+    {
+      "ref": "Art. 93",
+      "kind": "article",
+      "title": "Committee procedure",
+      "description": null,
+      "parent": "Chapter X",
+      "textSource": "VERBATIM",
+      "sortOrder": 102
+    },
+    {
+      "ref": "Chapter XI",
+      "kind": "chapter",
+      "title": "Final provisions",
+      "description": null,
+      "parent": null,
+      "textSource": "VERBATIM",
+      "sortOrder": 103
+    },
+    {
+      "ref": "Art. 94",
+      "kind": "article",
+      "title": "Repeal of Directive 95/46/EC",
+      "description": null,
+      "parent": "Chapter XI",
+      "textSource": "VERBATIM",
+      "sortOrder": 104
+    },
+    {
+      "ref": "Art. 95",
+      "kind": "article",
+      "title": "Relationship with Directive 2002/58/EC",
+      "description": null,
+      "parent": "Chapter XI",
+      "textSource": "VERBATIM",
+      "sortOrder": 105
+    },
+    {
+      "ref": "Art. 96",
+      "kind": "article",
+      "title": "Relationship with previously concluded Agreements",
+      "description": null,
+      "parent": "Chapter XI",
+      "textSource": "VERBATIM",
+      "sortOrder": 106
+    },
+    {
+      "ref": "Art. 97",
+      "kind": "article",
+      "title": "Commission reports",
+      "description": null,
+      "parent": "Chapter XI",
+      "textSource": "VERBATIM",
+      "sortOrder": 107
+    },
+    {
+      "ref": "Art. 98",
+      "kind": "article",
+      "title": "Review of other Union legal acts on data protection",
+      "description": null,
+      "parent": "Chapter XI",
+      "textSource": "VERBATIM",
+      "sortOrder": 108
+    },
+    {
+      "ref": "Art. 99",
+      "kind": "article",
+      "title": "Entry into force and application",
+      "description": null,
+      "parent": "Chapter XI",
+      "textSource": "VERBATIM",
+      "sortOrder": 109
+    }
+  ],
+  "mappings": []
+}
