@@ -28,10 +28,16 @@ owner's to create; the code, the config and the checks are here.
    (`https://<project-ref>.storage.supabase.co`), the **region shown with those keys** and both key values.
    The app never creates a bucket and never lists one: it only writes the keys the database already names —
    `org/{organisationId}/evidence/…`, `org/{organisationId}/reports/{reportId}`, `org/{organisationId}/logo/{uuid}`.
-3. **Vercel.** Import the repository with **Root Directory = `fca-backend`**. The framework preset is "Vercel
-   Node.js" (`framework: null` in `vercel.json`), the Build Command is `npm run build`, and `npm ci` runs
-   `prisma generate` through its `postinstall`, so the generated client is built on the CI machine and never
-   committed.
+3. **Vercel.** Import the backend repository (`compliance-accelerator-back`) — its **root directory is this
+   folder**: `vercel.json`, `api/index.mjs`, `package.json` and `src/` all sit at the top level, so leave
+   "Root Directory" empty. The framework preset is "Vercel Node.js" (`framework: null` in `vercel.json`), the
+   Build Command is `npm run build`, and `npm ci` runs `prisma generate` through its `postinstall`, so the
+   generated client is built on the CI machine and never committed. `vercel.json` has **no `nodeVersion` key**
+   on purpose: Vercel's own schema rejects it (`Invalid request: should NOT have additional property
+   nodeVersion`), and the Node runtime is chosen from `engines.node` in `package.json` (`>=24.15.0` → Vercel's
+   Node 24). If the dashboard shows a different Node major, change it in *Settings → Environment Variables →
+   Node.js Version* — not in this file. The keys this file *does* use are the ones the host validates
+   (`https://openapi.vercel.sh/vercel.json`): `includeFiles` is one glob string, not a list.
 
 ## Environment variables
 
