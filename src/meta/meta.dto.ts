@@ -17,4 +17,11 @@ export class MetaDto {
    * explains that organisations are provisioned by a platform administrator instead of offering the form.
    */
   organisationSelfServe!: boolean;
+
+  /**
+   * The largest evidence file this deployment accepts, in bytes. The host decides it (a serverless function
+   * refuses a body over 4.5 MB before any code runs), so a client reads the limit from here instead of
+   * carrying a number of its own into its message to the uploader.
+   */
+  evidenceMaxBytes!: number;
 }

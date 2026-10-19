@@ -25,6 +25,7 @@ export class MetaController {
       contractVersion: CONTRACT_VERSION,
       apiVersion: API_VERSION,
       organisationSelfServe: this.config.get('ORGANISATIONS_SELF_SERVE', { infer: true }) === true,
+      evidenceMaxBytes: this.config.get('EVIDENCE_MAX_BYTES', { infer: true }),
     };
   }
 }

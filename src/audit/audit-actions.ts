@@ -120,6 +120,11 @@ export const AUDIT_ACTIONS = [
   'reminder.completed',
   'reminder.cancelled',
   'reminder.preference_updated',
+  // Phase 9a: reports and the audit trail
+  'audit.exported',
+  'report.requested',
+  'report.ready',
+  'report.failed',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

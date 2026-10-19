@@ -3,6 +3,22 @@ import { JobsRunner, NodeEnv, parseCorsOrigins, validateEnv } from './env.schema
 const SECRET = 'a-test-secret-with-at-least-thirty-two-characters';
 /** The smallest valid environment: the JWT secret has no default on purpose. */
 const base = { JWT_ACCESS_SECRET: SECRET };
+/**
+ * The smallest valid production environment. The object store has to be named there, because production
+ * defaults to `STORAGE_DRIVER=s3` — a host may discard the disk a file was written to.
+ */
+const production = {
+  ...base,
+  NODE_ENV: 'production',
+  CORS_ORIGINS: 'https://app.example.com',
+  APP_BASE_URL: 'https://app.example.com',
+  DATABASE_URL: 'postgresql://user:pass@host/db',
+  STORAGE_S3_ENDPOINT: 'https://projref.storage.supabase.co',
+  STORAGE_S3_BUCKET: 'fca-files',
+  STORAGE_S3_ACCESS_KEY_ID: 'key-id',
+  STORAGE_S3_SECRET_ACCESS_KEY: 'secret-key',
+  STORAGE_S3_REGION: 'us-east-1',
+};
 
 describe('validateEnv', () => {
   it('applies defaults for local development', () => {
@@ -27,14 +43,7 @@ describe('validateEnv', () => {
   });
 
   it('disables Swagger by default in production', () => {
-    const env = validateEnv({
-      ...base,
-      NODE_ENV: 'production',
-      CORS_ORIGINS: 'https://app.example.com',
-      APP_BASE_URL: 'https://app.example.com',
-      DATABASE_URL: 'postgresql://user:pass@host/db',
-    });
-    expect(env.SWAGGER_ENABLED).toBe(false);
+    expect(validateEnv(production).SWAGGER_ENABLED).toBe(false);
   });
 
   it('rejects invalid values with a readable message', () => {
@@ -77,13 +86,6 @@ describe('validateEnv: authentication, mail and jobs (Phase 2b)', () => {
   });
 
   it('makes the refresh cookie Secure by default only in production, and lets you override it', () => {
-    const production = {
-      ...base,
-      NODE_ENV: 'production',
-      CORS_ORIGINS: 'https://app.example.com',
-      APP_BASE_URL: 'https://app.example.com',
-      DATABASE_URL: 'postgresql://user:pass@host/db',
-    };
     expect(validateEnv({ ...base }).COOKIE_SECURE).toBe(false);
     expect(validateEnv(production).COOKIE_SECURE).toBe(true);
     expect(validateEnv({ ...production, COOKIE_SECURE: 'false' }).COOKIE_SECURE).toBe(false);

@@ -1,5 +1,6 @@
 import pdfMake from 'pdfmake';
 import vfsFonts from 'pdfmake/build/vfs_fonts.js';
+import { substituteDeep } from './glyphs.js';
 import type { PdfDocument } from './pdf-document.js';
 
 /**
@@ -31,8 +32,13 @@ function installFonts(): void {
   fontsInstalled = true;
 }
 
-/** The PDF bytes of a document definition. Throws when pdfmake rejects the definition, which the caller fails. */
+/**
+ * The PDF bytes of a document definition. Throws when pdfmake rejects the definition, which the caller fails.
+ *
+ * The definition is walked before it is handed over, so no template has to remember that a character the
+ * embedded family cannot draw would otherwise vanish from a stored, signed document.
+ */
 export async function renderPdf(document: PdfDocument): Promise<Buffer> {
   installFonts();
-  return pdfMake.createPdf(document).getBuffer();
+  return pdfMake.createPdf(substituteDeep(document)).getBuffer();
 }

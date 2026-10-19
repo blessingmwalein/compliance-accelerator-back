@@ -80,6 +80,7 @@ const GRANTS = {
   'governance.approve': [OWN, ADM, CMG],
   'remediation.updateOwn': [OWN, ADM, CMG, STD],
   'audit.view': [OWN, ADM, CMG],
+  'audit.export': [OWN, ADM, CMG],
   'reminders.view': [OWN, ADM, CMG, STD, RO],
   'reminders.manage': [OWN, ADM, CMG],
   'notifications.own': [OWN, ADM, CMG, CRS, STD, RO],

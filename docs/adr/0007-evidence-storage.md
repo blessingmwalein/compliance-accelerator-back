@@ -11,5 +11,12 @@
 - `VirusScanner` interface (`pending_scan`, `clean`, `infected`, `not_scanned`; production fail-closed; no third-party public scanners for customer evidence).
 - Disposal only through one `assertDisposable()` that honours **legal holds** (organisation, record type or record); soft-delete then audited purge; typed link tables rather than polymorphic links.
 
+## Consequences of the hosting decision (2026-10-19)
+- Both drivers now exist behind the same `StorageProvider` contract: `LocalStorageProvider` (development and tests) and `S3StorageProvider` (`@aws-sdk/client-s3`), selected by `STORAGE_DRIVER`. The first host is **Supabase Storage over its S3-compatible endpoint** — which is why the endpoint, bucket, region and key pair are configuration and not a Supabase-specific driver: the same code addresses R2, B2, Wasabi, MinIO or AWS S3.
+- The interface as built is `put(key, data) -> {size, sha256}`, `get(key) -> Buffer | null`, `delete(key)`; downloads stay proxied streams. No signed URL is issued by either driver.
+- The body limit was answered by **lowering the cap** rather than by pre-signed direct uploads: `EVIDENCE_MAX_BYTES` (default 4 MiB) is the ceiling a deployment advertises, and `GET /api/v1/meta` states it so no client carries its own number. Direct uploads and larger artefacts remain open for when a real document exceeds it.
+- Keys are unchanged (`org/{organisationId}/…`) and the bucket is private: bytes reach a browser only through the authorised download endpoints.
+- Procedure: see [../deployment-vercel.md](../deployment-vercel.md).
+
 ## Revisit when
-Hosting or storage is chosen, or files larger than the proxy limit are needed.
+Files larger than the proxy limit have to be accepted (pre-signed uploads), or an object-store-native feature (lifecycle rules, tiering, retention) is needed.

@@ -30,6 +30,7 @@ import type { Request, Response } from 'express';
 import { OrganisationMember, RequirePermission } from '../auth/access.decorators.js';
 import { ApiProblemResponse } from '../common/errors/api-problem-response.decorator.js';
 import { contentDisposition } from '../common/http/content-disposition.js';
+import { MAX_UPLOAD_CEILING_BYTES } from '../config/env.schema.js';
 import {
   AttestEvidenceScanDto,
   ChangeEvidenceReviewDto,
@@ -43,7 +44,7 @@ import {
   UploadEvidenceDto,
   UploadEvidenceVersionDto,
 } from './evidence.dto.js';
-import { EVIDENCE_CONTENT_TYPES, MAX_EVIDENCE_BYTES, EvidenceService } from './evidence.service.js';
+import { EVIDENCE_CONTENT_TYPES, EvidenceService } from './evidence.service.js';
 
 /** What the upload interceptor hands over: the bytes are kept in memory, the name is the one the client sent. */
 interface UploadedEvidenceFile {
@@ -78,19 +79,24 @@ export class EvidenceController {
 
   /**
    * Uploads one file with its title, starting the version ledger at 1. The type is decided from the bytes
-   * (PDF, PNG, JPEG, GIF, plain text or CSV) and the size cap is 10 MiB; the checksum and size are measured
-   * here, never taken from the client.
+   * (PDF, PNG, JPEG, GIF, plain text or CSV) and the size cap is the deployment's `EVIDENCE_MAX_BYTES`, which
+   * `GET /api/v1/meta` states; the checksum and size are measured here, never taken from the client.
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @RequirePermission('governance.edit')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_EVIDENCE_BYTES, files: 1 } }))
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_CEILING_BYTES, files: 1 } }),
+  )
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: UploadEvidenceDto })
   @ApiOperation({ operationId: 'uploadEvidence', summary: 'Upload an evidence file' })
   @ApiCreatedResponse({ type: EvidenceDto })
   @ApiProblemResponse(HttpStatus.BAD_REQUEST, 'Validation failed: a title and a non-empty file.')
-  @ApiProblemResponse(HttpStatus.PAYLOAD_TOO_LARGE, 'The file is larger than 10 MiB.')
+  @ApiProblemResponse(
+    HttpStatus.PAYLOAD_TOO_LARGE,
+    'The file is larger than the cap this deployment states on GET /api/v1/meta.',
+  )
   @ApiProblemResponse(
     HttpStatus.UNSUPPORTED_MEDIA_TYPE,
     'The file is not a PDF, PNG, JPEG, GIF, plain text or CSV.',
@@ -142,7 +148,9 @@ export class EvidenceController {
   @Post(':evidenceId/versions')
   @HttpCode(HttpStatus.CREATED)
   @RequirePermission('governance.edit')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_EVIDENCE_BYTES, files: 1 } }))
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_CEILING_BYTES, files: 1 } }),
+  )
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: UploadEvidenceVersionDto })
   @ApiOperation({
@@ -151,7 +159,10 @@ export class EvidenceController {
   })
   @ApiCreatedResponse({ type: EvidenceDto })
   @ApiProblemResponse(HttpStatus.BAD_REQUEST, 'Validation failed: a non-empty file.')
-  @ApiProblemResponse(HttpStatus.PAYLOAD_TOO_LARGE, 'The file is larger than 10 MiB.')
+  @ApiProblemResponse(
+    HttpStatus.PAYLOAD_TOO_LARGE,
+    'The file is larger than the cap this deployment states on GET /api/v1/meta.',
+  )
   @ApiProblemResponse(
     HttpStatus.UNSUPPORTED_MEDIA_TYPE,
     'The file is not a PDF, PNG, JPEG, GIF, plain text or CSV.',

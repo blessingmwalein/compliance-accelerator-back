@@ -48,6 +48,7 @@ The **DPO** is a designated contact on the organisation, not a role. The **platf
 | `governance.approve` | ✓ | ✓ | ✓ | – | – | – | assessment sign-off, risk acceptance, DSAR/breach closure approval (spec: review and approval workflow) |
 | `remediation.updateOwn` | ✓ | ✓ | ✓ | – | ✓ | – | status/comments on tasks assigned to the caller (record-level rule); otherwise STD cannot progress their own tasks |
 | `audit.view` | ✓ | ✓ | ✓ | – | – | – | the legacy showed Audit Trail to every role (a defect) |
+| `audit.export` | ✓ | ✓ | ✓ | – | – | – | a CSV copy of the trail leaves the product, so reading it and taking it away are separate keys |
 | `reminders.view` | ✓ | ✓ | ✓ | – | ✓ | ✓ | own and organisation reminders |
 | `reminders.manage` | ✓ | ✓ | ✓ | – | – | – | assign, schedule |
 | `notifications.own` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | in-app notifications and preferences: everyone |

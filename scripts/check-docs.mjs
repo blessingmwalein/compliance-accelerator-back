@@ -42,6 +42,7 @@ const REQUIRED_FILES = [
   'docs/implementation-plan.md',
   'docs/acceptance-criteria.md',
   'docs/integration.md',
+  'docs/deployment-vercel.md',
   'docs/security-baseline.md',
   'docs/rbac-matrix.md',
   'docs/neon-setup.md',

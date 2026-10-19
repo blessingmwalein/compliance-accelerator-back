@@ -129,10 +129,11 @@ export class EvidenceListQueryDto extends PageQueryDto {
 
 /**
  * Multipart body of an upload: the file plus its metadata. The file itself is read by the upload
- * interceptor (bytes never travel through this DTO), which also caps its size at 10 MiB.
+ * interceptor (bytes never travel through this DTO), which bounds the body at 10 MiB; the cap this
+ * deployment applies is the lower one and `GET /api/v1/meta` states it.
  */
 export class UploadEvidenceDto {
-  /** PDF, PNG, JPEG, GIF, plain text or CSV, up to 10 MiB. The type is decided from the bytes. */
+  /** PDF, PNG, JPEG, GIF, plain text or CSV, up to the cap GET /api/v1/meta states. Type from the bytes. */
   @ApiProperty({ type: 'string', format: 'binary' })
   file!: unknown;
 
@@ -157,7 +158,7 @@ export class UploadEvidenceDto {
  * The title and description stay on the record; only the bytes are versioned here.
  */
 export class UploadEvidenceVersionDto {
-  /** The new file: PDF, PNG, JPEG, GIF, plain text or CSV, up to 10 MiB. The type is decided from bytes. */
+  /** The new file: PDF, PNG, JPEG, GIF, plain text or CSV, up to the cap GET /api/v1/meta states. */
   @ApiProperty({ type: 'string', format: 'binary' })
   file!: unknown;
 

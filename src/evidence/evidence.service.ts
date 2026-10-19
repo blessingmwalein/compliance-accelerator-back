@@ -1,11 +1,13 @@
 import { TextDecoder } from 'node:util';
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AuditService } from '../audit/audit.service.js';
 import { Clock } from '../common/clock.js';
 import { AppException, ErrorCode, type FieldError } from '../common/errors/app.exception.js';
 import { isUniqueViolation } from '../common/errors/unique-violation.js';
 import { pageSizeOf, toPage } from '../common/pagination.js';
 import { uuidv7 } from '../common/uuid.js';
+import type { EnvironmentVariables } from '../config/env.schema.js';
 import { UnitOfWork } from '../database/unit-of-work.js';
 import { todayIn } from '../domain/remediation/policy.js';
 import { toDateOnly, utcDay } from '../domain/registers/review.js';
@@ -45,8 +47,9 @@ import {
   type EvidenceVersionRecord,
 } from './evidence.repository.js';
 
-/** The cap, enforced twice: by the upload interceptor's `limits` and by the check below. */
-export const MAX_EVIDENCE_BYTES = 10 * 1024 * 1024;
+/** The cap in the words an uploader reads: whole MiB when it is one, bytes when it is not. */
+const humanBytes = (bytes: number): string =>
+  bytes % (1024 * 1024) === 0 ? `${bytes / (1024 * 1024)} MiB` : `${bytes} bytes`;
 
 /**
  * What evidence may be: the two documents people are asked for (PDF, plain text/CSV) and the three
@@ -280,7 +283,18 @@ export class EvidenceService {
     private readonly storage: StorageProvider,
     private readonly requestContext: RequestContext,
     private readonly clock: Clock,
+    private readonly config: ConfigService<EnvironmentVariables, true>,
   ) {}
+
+  /**
+   * The largest evidence file this deployment accepts (`EVIDENCE_MAX_BYTES`). It is configuration, not a
+   * constant, because the host decides it: a serverless function refuses a body over 4.5 MB before any
+   * application code runs, so a cap above that would be a limit the uploader is never told about. The API
+   * states it on `GET /api/v1/meta`, which is where a client reads it from.
+   */
+  private get maxEvidenceBytes(): number {
+    return this.config.get('EVIDENCE_MAX_BYTES', { infer: true });
+  }
 
   async list(query: EvidenceListQueryDto): Promise<EvidencePageDto> {
     const limit = pageSizeOf(query);
@@ -650,12 +664,13 @@ export class EvidenceService {
     originalFilename: string | undefined,
   ): { bytes: Buffer; filename: string; contentType: EvidenceContentType } {
     if (!raw || raw.length === 0) throw missingFile();
-    // The interceptor already refuses a larger body; this is the check that does not depend on it.
-    if (raw.length > MAX_EVIDENCE_BYTES) {
+    // The interceptor bounds the body at the pipeline's memory ceiling; this is the deployment's own cap.
+    const maxBytes = this.maxEvidenceBytes;
+    if (raw.length > maxBytes) {
       throw new AppException(
         ErrorCode.PayloadTooLarge,
         HttpStatus.PAYLOAD_TOO_LARGE,
-        'An evidence file must be 10 MiB or smaller.',
+        `An evidence file must be ${humanBytes(maxBytes)} or smaller.`,
       );
     }
     const filename = sanitiseFilename(originalFilename);

@@ -11863,7 +11863,7 @@
             }
           },
           "413": {
-            "description": "The file is larger than 10 MiB.",
+            "description": "The file is larger than the cap this deployment states on GET /api/v1/meta.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -12157,7 +12157,7 @@
             }
           },
           "413": {
-            "description": "The file is larger than 10 MiB.",
+            "description": "The file is larger than the cap this deployment states on GET /api/v1/meta.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -16505,7 +16505,7 @@
   "info": {
     "title": "Fernando Compliance Accelerator API",
     "description": "REST API for the Fernando Compliance Accelerator (FCA) platform. Errors use RFC 9457 problem+json with a stable `code`. Cross-framework mappings and assessments are informative aids and do not constitute legal advice.",
-    "version": "0.9.0",
+    "version": "0.10.0",
     "contact": {}
   },
   "tags": [],
@@ -16838,6 +16838,7 @@
           "governance.approve",
           "remediation.updateOwn",
           "audit.view",
+          "audit.export",
           "reminders.view",
           "reminders.manage",
           "notifications.own",
@@ -25420,7 +25421,7 @@
         "properties": {
           "file": {
             "type": "string",
-            "description": "PDF, PNG, JPEG, GIF, plain text or CSV, up to 10 MiB. The type is decided from the bytes.",
+            "description": "PDF, PNG, JPEG, GIF, plain text or CSV, up to the cap GET /api/v1/meta states. Type from the bytes.",
             "format": "binary"
           },
           "description": {
@@ -25660,7 +25661,7 @@
         "properties": {
           "file": {
             "type": "string",
-            "description": "The new file: PDF, PNG, JPEG, GIF, plain text or CSV, up to 10 MiB. The type is decided from bytes.",
+            "description": "The new file: PDF, PNG, JPEG, GIF, plain text or CSV, up to the cap GET /api/v1/meta states.",
             "format": "binary"
           },
           "note": {
@@ -28760,6 +28761,10 @@
           "organisationSelfServe": {
             "type": "boolean",
             "description": "Whether any signed-in user may create an organisation (`POST /organisations`). When false the UI\nexplains that organisations are provisioned by a platform administrator instead of offering the form."
+          },
+          "evidenceMaxBytes": {
+            "type": "number",
+            "description": "The largest evidence file this deployment accepts, in bytes. The host decides it (a serverless function\nrefuses a body over 4.5 MB before any code runs), so a client reads the limit from here instead of\ncarrying a number of its own into its message to the uploader."
           }
         },
         "required": [
@@ -28767,7 +28772,8 @@
           "version",
           "contractVersion",
           "apiVersion",
-          "organisationSelfServe"
+          "organisationSelfServe",
+          "evidenceMaxBytes"
         ]
       }
     }

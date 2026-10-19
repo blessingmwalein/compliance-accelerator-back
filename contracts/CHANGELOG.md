@@ -5,6 +5,23 @@ The HTTP contract is `contracts/openapi.json` (`info.version` = `CONTRACT_VERSIO
 Record every bump here in the same commit that regenerates the document (`npm run openapi:export`).
 The frontend pins a contract version in its own repository (`contract/CONTRACT_VERSION`).
 
+## 0.10.0 - Deployment: the upload cap becomes the server's statement, files move to object storage (additive)
+
+Nothing was removed, renamed or re-typed: one existing read gains one field and two multipart descriptions stop quoting a number the server no longer fixes. **No migration.** Phase 9a takes the next minor (0.11.0).
+
+| Method | Path | operationId | Access | Notes |
+|---|---|---|---|---|
+| GET | `/api/v1/meta` | `getMeta` | public | gains `evidenceMaxBytes`: the largest evidence file this deployment accepts, in bytes. It is `EVIDENCE_MAX_BYTES` (default 4194304), so a client states the limit it read instead of carrying a number of its own into the message it shows an uploader |
+| POST | `…/evidence`, `…/evidence/{id}/versions` | `uploadEvidence` · `uploadEvidenceVersion` | `governance.edit` | the `file` part and the `413` response no longer say "10 MiB": the multipart interceptor still bounds the body at 10 MiB, and the cap a request is refused against is the one `GET /api/v1/meta` states |
+
+Behaviour that is not visible in the schema:
+
+- **Where the bytes live is configuration, not code.** `STORAGE_DRIVER=s3` stores evidence, report PDFs and the logo in an S3-compatible bucket (Supabase Storage speaks the protocol, so do R2, B2, Wasabi and AWS S3) behind the same `StorageProvider` contract (ADR-0007). Keys, checksums and the authorised download endpoints are unchanged; the bucket is private and no object has a URL of its own. `validateEnv` refuses `s3` without an endpoint, bucket, region and both keys, and refuses `local` in production, because a host that can discard the instance's disk cannot keep a compliance file on it.
+- **The same application answers from a function.** `src/main-serverless.ts` builds the Nest app once per warm instance and hands every request to the one Express instance `configureApp` set up, so the prefix, CORS, helmet, the problem+json filter, throttling and the request id are not a second implementation. `api/index.mjs` re-exports it and `vercel.json` routes everything to that one function.
+- **A function host sets the ceiling twice over.** Vercel refuses a request body over 4.5 MB before any application code runs, which is why the default upload cap is 4 MiB and not the 10 MiB the pipeline can hold. `TRUST_PROXY=1` there: without it the per-IP limits and the lockout counters key on the proxy's address.
+- **Queued jobs stay queued.** Outside development `JOBS_RUNNER` defaults to `external`, and a function is not running between requests: nothing is delivered or generated until something calls `POST /api/v1/internal/jobs/tick` with `JOBS_TICK_SECRET` set. No scheduler is configured in this build, which is the honest state of alerts and reports, not a defect of it.
+- **Nothing is delivered by email yet.** `MAIL_TRANSPORT` still has one value (`file`), and a function's disk is not a mailbox. Production mail remains the provider decision it was.
+
 ## 0.9.0 - Phase 8 executive dashboard: organisation-wide metrics, framework comparison, gap analysis, top risks, the Executive Dashboard PDF (additive)
 
 New endpoints (under `/api/v1`; every operation carries `x-access` / `x-permission`). Nothing was removed or renamed: 142 paths become 148 (6 new operations, 22 new schemas), and two existing reads gained optional query parameters. **No migration: Phase 8 adds no Prisma model, only reads of what the earlier phases already store.**

@@ -60,6 +60,31 @@ export enum JobsRunner {
 }
 
 /**
+ * Which `StorageProvider` answers `put`/`get`/`delete` (ADR-0007). The local driver writes under
+ * `STORAGE_LOCAL_DIR`: a real folder on a real disk, so it is the only sensible choice for development and
+ * tests, and a wrong one wherever the process may be replaced without warning. The S3 driver is pointed at
+ * an endpoint by environment, so the same code serves Supabase Storage today and any other
+ * S3-compatible store later without a second implementation to keep honest.
+ */
+export enum StorageDriver {
+  Local = 'local',
+  S3 = 's3',
+}
+
+/**
+ * The ceiling a body-size limit may be set to: the multipart interceptor's own bound, which is what the
+ * evidence pipeline was built to hold in memory. `EVIDENCE_MAX_BYTES` states the cap a deployment advertises;
+ * it can lower it, never raise it past this.
+ */
+export const MAX_UPLOAD_CEILING_BYTES = 10 * 1024 * 1024;
+
+/**
+ * The default upload ceiling: under the 4.5 MB a serverless function forwards in either direction, so the same
+ * build works on a host that has that limit and on one that does not.
+ */
+export const DEFAULT_EVIDENCE_MAX_BYTES = 4 * 1024 * 1024;
+
+/**
  * Environment variables read by the application. Keys listed here MUST also appear in
  * `.env.example` (enforced by `npm run check:docs`).
  */
@@ -205,6 +230,56 @@ export class EnvironmentVariables {
   @IsString()
   STORAGE_LOCAL_DIR: string = '.local-storage';
 
+  /** local = the folder above (development and tests); s3 = an S3-compatible object store, which is what production needs. */
+  @IsOptional()
+  @IsEnum(StorageDriver)
+  STORAGE_DRIVER?: StorageDriver;
+
+  /** The S3-compatible endpoint, scheme and host only, e.g. `https://<project-ref>.storage.supabase.co`. Supabase Storage speaks the S3 protocol; so do R2, B2 and Wasabi. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  STORAGE_S3_ENDPOINT?: string;
+
+  /** The bucket every key lives in. Buckets are created in the store's own console, never by this app. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(63)
+  STORAGE_S3_BUCKET?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  STORAGE_S3_ACCESS_KEY_ID?: string;
+
+  /** A secret: never logged, never returned, and only ever used to sign requests to `STORAGE_S3_ENDPOINT`. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  STORAGE_S3_SECRET_ACCESS_KEY?: string;
+
+  /** S3-compatible hosts differ on this: Supabase addresses buckets as `<endpoint>/<bucket>/<key>`, not as a subdomain. */
+  @IsOptional()
+  @Transform(toBoolean, { toClassOnly: true })
+  @IsBoolean()
+  STORAGE_S3_FORCE_PATH_STYLE?: boolean;
+
+  /** The region the signature is scoped to. On Supabase this is the project's own region, shown beside the S3 credentials. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  STORAGE_S3_REGION?: string;
+
+  /**
+   * The largest evidence file this deployment accepts, as the API states it and the client obeys it.
+   * A function host caps the whole request body (Vercel: 4.5 MB) and refuses a larger one before any
+   * application code runs, so a limit above what the host forwards would only ever surprise the uploader.
+   */
+  @IsInt()
+  @Min(1024)
+  @Max(MAX_UPLOAD_CEILING_BYTES)
+  EVIDENCE_MAX_BYTES: number = DEFAULT_EVIDENCE_MAX_BYTES;
+
   /** Where the file transport writes .eml files (git-ignored). */
   @IsString()
   DEV_MAIL_DIR: string = '.dev-mail';
@@ -275,6 +350,33 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
     problems.push((error as Error).message);
   }
 
+  validated.STORAGE_DRIVER ??=
+    validated.NODE_ENV === NodeEnv.Production ? StorageDriver.S3 : StorageDriver.Local;
+  const driver = validated.STORAGE_DRIVER;
+
+  if (driver === StorageDriver.S3) {
+    // Every value is required rather than guessed: an S3 request signed for the wrong region or aimed at a
+    // host built from a default fails with a signature or DNS error that reads as a bug in the app.
+    for (const key of [
+      'STORAGE_S3_ENDPOINT',
+      'STORAGE_S3_BUCKET',
+      'STORAGE_S3_ACCESS_KEY_ID',
+      'STORAGE_S3_SECRET_ACCESS_KEY',
+      'STORAGE_S3_REGION',
+    ] as const) {
+      if (validated[key] === undefined) {
+        problems.push(`${key} must be set when STORAGE_DRIVER=s3`);
+      }
+    }
+    if (validated.STORAGE_S3_ENDPOINT !== undefined) {
+      problems.push(...endpointProblems(validated.STORAGE_S3_ENDPOINT));
+    }
+  } else if (validated.NODE_ENV === NodeEnv.Production) {
+    problems.push(
+      'STORAGE_DRIVER=local in production would write uploaded files to a disk the host may discard; set STORAGE_DRIVER=s3 (ADR-0007)',
+    );
+  }
+
   if (problems.length > 0) {
     throw new Error(`Invalid environment configuration:\n - ${problems.join('\n - ')}`);
   }
@@ -284,9 +386,35 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
   validated.COOKIE_SECURE ??= production;
   validated.THROTTLE_ENABLED ??= true;
   validated.ORGANISATIONS_SELF_SERVE ??= false;
+  validated.STORAGE_S3_FORCE_PATH_STYLE ??= true;
   validated.JOBS_RUNNER ??=
     validated.NODE_ENV === NodeEnv.Development ? JobsRunner.Inproc : JobsRunner.External;
   return validated;
+}
+
+/**
+ * Checks the object store's address. The bucket is appended to it by the client, so a path, a query or an
+ * embedded credential in this value would silently change which bucket every key lands in — or leak a secret
+ * into a log line. `http` is accepted only so a local MinIO can be exercised the same way as the real thing.
+ */
+export function endpointProblems(endpoint: string): string[] {
+  const invalid = (reason: string): string[] => [
+    `STORAGE_S3_ENDPOINT is not usable (${reason}): "${endpoint}"`,
+  ];
+  let url: URL;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    return invalid('not an absolute URL');
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:')
+    return invalid('scheme must be http or https');
+  if (url.username !== '' || url.password !== '')
+    return invalid('credentials belong in the keys, not the URL');
+  if (url.search !== '' || url.hash !== '') return invalid('it must carry no query or fragment');
+  const path = url.pathname.replace(/\/$/, '');
+  if (path !== '') return invalid('it must be the host only, with no path before the bucket');
+  return [];
 }
 
 /**

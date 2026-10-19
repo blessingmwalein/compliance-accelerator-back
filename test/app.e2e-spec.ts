@@ -6,6 +6,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { Public } from '../src/auth/access.decorators.js';
 import { configureApp } from '../src/common/http/configure-app.js';
+import { DEFAULT_EVIDENCE_MAX_BYTES } from '../src/config/env.schema.js';
 import { RequestContext } from '../src/tenancy/request-context.js';
 import { CONTRACT_VERSION } from '../src/meta/contract-version.js';
 
@@ -90,6 +91,8 @@ describe('HTTP surface (no database)', () => {
       apiVersion: 'v1',
       // off unless the deployment enables it (ORGANISATIONS_SELF_SERVE)
       organisationSelfServe: false,
+      // the cap an uploader must obey, stated by the server rather than assumed by the client
+      evidenceMaxBytes: DEFAULT_EVIDENCE_MAX_BYTES,
     });
   });
 

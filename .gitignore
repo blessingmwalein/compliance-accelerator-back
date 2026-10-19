@@ -15,6 +15,7 @@ src/generated
 # local dev artefacts
 .dev-mail
 .local-storage
+.vercel
 logs
 *.log
 npm-debug.log*

@@ -94,8 +94,8 @@ Validated environment (`src/config/env.schema.ts`), `.env.example` is the docume
 ## 16. Deployment options (decide at gate G0)
 | Option | Fits | Notes |
 |---|---|---|
+| Serverless functions (**built for Vercel**: `src/main-serverless.ts` + `vercel.json`) | one Node 24 function, external job tick, S3-compatible storage | body cap 4.5 MB in and out, so the upload ceiling is 4 MiB and `GET /meta` states it; pre-signed direct uploads are still unbuilt. Step by step: [deployment-vercel.md](deployment-vercel.md) |
 | Always-on container host (Render/Fly/Railway/VM) | in-process job poller, local-disk-free storage via S3 | simplest; same-site domains via custom domain |
-| Serverless functions | external job tick, pre-signed uploads | body limits, cold starts, cookie scope need care |
 Common: HTTPS, same-site custom domains for web and API, secrets in the host's secret store, Neon `main` for production with PITR, separate roles for runtime and migrations.
 
 ## 17. Concerns the specification does not cover (to be decided; tracked here)

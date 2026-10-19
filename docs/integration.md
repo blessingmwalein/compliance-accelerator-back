@@ -8,7 +8,7 @@
 | API base URL (local) | `http://localhost:3001/api/v1` |
 | Swagger UI / raw document | `http://localhost:3001/api/docs` · `/api/docs-json` |
 | Web app origin (local) | `http://localhost:5173` (allowed by `CORS_ORIGINS`) |
-| **Contract version** | **0.9.0** (`src/meta/contract-version.ts`, `contracts/openapi.json` `info.version`, `GET /meta`) |
+| **Contract version** | **0.10.0** (`src/meta/contract-version.ts`, `contracts/openapi.json` `info.version`, `GET /meta`) |
 | API major | `v1` (URL prefix) |
 | Content type | `application/json`; errors `application/problem+json` |
 | Tenant routes | `/api/v1/organisations/:organisationId/…` |
@@ -25,7 +25,7 @@ Local ports: API **3001**, web **5173** (Vite dev), 4173 (Vite preview). Neon is
 ## Authentication (from Phase 2b; see ADR-0003)
 - `Authorization: Bearer <access token>` (≈15 min, kept in memory by the SPA).
 - Refresh: `POST /api/v1/auth/refresh` with the `HttpOnly` cookie (send `credentials: 'include'`); on boot and after a 401 (single-flight). Cookie is `SameSite=Lax`, scoped to `/api/v1/auth`.
-- Production requires web and API to be **same-site** (shared registrable domain) or a host rewrite of `/api/*`; decided at gate G0.
+- Production requires web and API to be **same-site** (shared registrable domain) or a host rewrite of `/api/*`. Two Vercel projects — `fca-web.vercel.app` and `fca-api.vercel.app` — share the registrable domain `vercel.app`, so they are same-site and the refresh cookie travels; two different registrable domains are not, and the session then cannot refresh. `CORS_ORIGINS` must name the deployed web origin exactly. See [deployment-vercel.md](deployment-vercel.md).
 - Cookie endpoints (`/auth/refresh`, `/auth/logout`) also require the header `X-Requested-With: fca-web` (CSRF defence; allowed by CORS) in addition to the exact-origin check.
 - Verification, reset and invitation links open **SPA pages** that POST the token; the API never consumes tokens on GET.
 
@@ -61,12 +61,12 @@ Local ports: API **3001**, web **5173** (Vite dev), 4173 (Vite preview). Neon is
 - **Status codes**: 400 validation, 401 unauthenticated, 403 lacks permission (member), 404 unknown **or foreign** record, 409 conflict, 422 domain-rule violation, 429 rate limited, 503 dependency down.
 - **CORS**: exact origins from `CORS_ORIGINS`, credentials allowed; allowed request headers `Content-Type`, `Authorization`, `X-Request-Id`, `X-Requested-With`, `Idempotency-Key`; exposed response headers `X-Request-Id`, `Content-Disposition` (needed to name downloads).
 
-## Current surface (contract 0.9.0)
+## Current surface (contract 0.10.0)
 | Method | Path | operationId | Notes |
 |---|---|---|---|
 | GET | `/health` | `getHealth` | liveness (public, never rate limited) |
 | GET | `/health/ready` | `getReadiness` | 503 problem+json (`DATABASE_NOT_CONFIGURED` / `DATABASE_UNAVAILABLE`) when the database is missing or down |
-| GET | `/meta` | `getMeta` | `{ name, version, contractVersion, apiVersion, organisationSelfServe }` |
+| GET | `/meta` | `getMeta` | `{ name, version, contractVersion, apiVersion, organisationSelfServe, evidenceMaxBytes }` |
 | POST | `/auth/register` · `/auth/resend-verification` · `/auth/verify-email` · `/auth/login` · `/auth/refresh` · `/auth/logout` · `/auth/forgot-password` · `/auth/reset-password` | `register` · `resendVerification` · `verifyEmail` · `login` · `refreshSession` · `logout` · `forgotPassword` · `resetPassword` | see "Contract for the web app" above |
 | GET | `/me` | `getMe` | signed-in user, with `isPlatformAdmin` |
 | | organisations, members, invitations, platform | see "Organisations and access" below | 15 operations added in 0.3.0 |
@@ -76,6 +76,7 @@ Local ports: API **3001**, web **5173** (Vite dev), 4173 (Vite preview). Neon is
 | | risks + summary/heatmap/acceptances, classification levels, RoPA + monitor, lawful basis, retention rules/holds/disposals | see "Registers" below | 44 operations added in 0.7.0 |
 | | deadline policy, alert deliveries, DSAR tracker + SLA, breach registry + summary + decisions, evidence versions/review/scan, reminders + preferences | see "Incidents and rights" below | 35 operations added in 0.8.0 |
 | | dashboard summary, framework comparison, gap analysis, top risks, the AI-assessment placeholder, the Executive Dashboard PDF, risk drill-down filters | see "Executive dashboard" below | 6 operations added in 0.9.0 |
+| | `evidenceMaxBytes` on `/meta`; the upload cap a request is refused against | `getMeta` · `uploadEvidence` · `uploadEvidenceVersion` | 0.10.0: no new operation. A client reads the limit instead of quoting one |
 
 ## Organisations and access (Phase 2c, contract 0.3.0)
 
@@ -139,7 +140,7 @@ Operation names, paths and permissions are in [contracts/CHANGELOG.md](../contra
 - **Overrides are an approver's act and are explained.** `…/priority/adjust` (`governance.approve`) sets `urgent`/`important` directly with a **required** `reason` (3–2000); the computed answers stay in the record, `adjusted: true` marks the row and `adjustment` carries who/when/why. `…/priority/clear-adjustment` returns to the computed quadrant and also needs a `reason`. `planWindow.source` is `REFERENCE_DEFAULT` or `ORGANISATION_POLICY`; `schedulingSuggestion` is the sentence the UI shows for "when to do it" — the client must not compute it from `minDays`/`maxDays`.
 - **Remediation: the server owns the state machine.** `GET`/`POST …/remediation-tasks` are permission-gated (`governance.view` / `governance.create`), but PATCH and `/status` are open to any active member and then checked against the task: only the assignee or someone with `governance.edit` may work a task, and verifying, reopening and reviving need `governance.approve` — `403 NOT_ASSIGNEE` when neither applies. `GET …/remediation-tasks/{taskId}` returns `allowedTransitions` (`{ toStatus, by, needsReason }`) already narrowed to what **this caller** may do: render the buttons from that array, never from a client-side copy of the table, and require the reason input when `needsReason`. An illegal `toStatus` is `409 INVALID_TRANSITION`. PATCH may clear `dueDate` and `assigneeMembershipId` with `null`; `title` and `priority` cannot be cleared (`400`, codes `isString` / `isIn`).
 - **Due dates are computed server-side, in the organisation's timezone.** Rows carry `dueState` = `{ availability, isOverdue, dueDate, asOf }`; `availability: "no_due_date"` means there is nothing to judge, so `isOverdue: false` is not a green light. `?overdue=true` filters on the server's `asOf`, not on the browser clock. `generate` (`{ assessmentId }`) answers `200 { created, skipped, items, skippedItems }` with a reason per skip (`NO_RISK_LEVEL`, `ACTIVE_TASK_EXISTS`) — show the skips instead of re-listing tasks to find them.
-- **Evidence has no public URL.** `POST …/evidence` is `multipart/form-data` with field `file` (optional `title`), 10 MiB (`413`), PDF/PNG/JPEG/GIF/text/CSV detected from the bytes; a `.docx` renamed `.pdf` is `415 UNSUPPORTED_MEDIA_TYPE` because the type that gets stored is the one the bytes proved. A missing or empty part is `400 FILE_REQUIRED`. `GET …/evidence/{id}/download` streams through the API with `Content-Disposition: attachment`, an `ETag` that is the file's `sha256`, `Cache-Control: private, no-cache`, `nosniff` and a locked CSP; send the bearer token, so fetch it with the API client and open a blob URL — a bare `<img src>` or link will 401. `Content-Disposition` is exposed by CORS: read it to name the saved file.
+- **Evidence has no public URL.** `POST …/evidence` is `multipart/form-data` with field `file` (optional `title`); the size cap is the deployment's `EVIDENCE_MAX_BYTES`, stated by `GET /meta` as `evidenceMaxBytes` (default 4 MiB) and answered with `413` — take the number from there, do not write one into a message. The multipart pipeline bounds the body at 10 MiB whatever the setting, so a value above that is refused at boot. PDF/PNG/JPEG/GIF/text/CSV are detected from the bytes; a `.docx` renamed `.pdf` is `415 UNSUPPORTED_MEDIA_TYPE` because the type that gets stored is the one the bytes proved. A missing or empty part is `400 FILE_REQUIRED`. `GET …/evidence/{id}/download` streams through the API with `Content-Disposition: attachment`, an `ETag` that is the file's `sha256`, `Cache-Control: private, no-cache`, `nosniff` and a locked CSP; send the bearer token, so fetch it with the API client and open a blob URL — a bare `<img src>` or link will 401. `Content-Disposition` is exposed by CORS: read it to name the saved file.
 - **Reports are rendered now, not later.** `POST …/reports/governance-assessment` `{ assessmentId, businessUnitId?, frameworkId? }` answers 201 with a `READY` `ReportDto` (`size`, `sha256`) — the PDF is already written when the call returns. There is no list endpoint: keep the `reportId` from the response for the download link. `PENDING` and `FAILED` exist in the enum for later templates, not for this one. `GET …/reports/{id}/download` behaves like an evidence download (same headers, `304` on `If-None-Match`). A report shows at most 300 items; what did not fit is counted and named inside the document, so a big assessment still says so.
 - **Every action is audited with the change**: answers, overrides, assessment lifecycle moves, task creation/edits/status/comments, evidence upload and linking, report generation and download. The client sends no audit fields.
 
