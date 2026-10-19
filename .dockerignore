@@ -1,0 +1,24 @@
+# dependencies and build output
+node_modules
+dist
+coverage
+*.tsbuildinfo
+
+# generated Prisma client (created by `npm run db:generate`, also run on postinstall)
+src/generated
+
+# local environment (never commit secrets; only .env.example is tracked)
+.env
+.env.*
+!.env.example
+
+# local dev artefacts
+.dev-mail
+.local-storage
+logs
+*.log
+npm-debug.log*
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
