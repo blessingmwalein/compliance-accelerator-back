@@ -111,6 +111,33 @@ model Organisation {
   taskEvidenceLinks     RemediationTaskEvidence[]
   reports               Report[]
 
+  // Phase 6: the registers
+  classificationLevels ClassificationLevel[]
+  ropaActivities       RopaActivity[]
+  ropaEvidenceLinks    RopaActivityEvidence[]
+  lawfulBasisRecords   LawfulBasisRecord[]
+  lawfulBasisEvidence  LawfulBasisEvidence[]
+  retentionRules       RetentionRule[]
+  legalHolds           LegalHold[]
+  retentionDisposals   RetentionDisposal[]
+  risks                Risk[]
+  riskAcceptances      RiskAcceptance[]
+
+  // Phase 7: incidents and rights
+  deadlinePolicy      DeadlinePolicy?
+  dsarRequests        DsarRequest[]
+  dsarExtensions      DsarExtension[]
+  dsarCommunications  DsarCommunication[]
+  dsarEvidenceLinks   DsarRequestEvidence[]
+  breaches            Breach[]
+  breachChronology    BreachChronologyEntry[]
+  breachDecisions     BreachNotificationDecision[]
+  breachEvidenceLinks BreachEvidence[]
+  evidenceVersions    EvidenceVersion[]
+  reminders           Reminder[]
+  reminderPreferences ReminderPreference[]
+  alertDeliveries     AlertDelivery[]
+
   @@map("organisations")
 }
 
@@ -157,6 +184,32 @@ model User {
   taskEvidenceLinked   RemediationTaskEvidence[] @relation("TaskEvidenceLinkedBy")
   reportsRequested     Report[]                  @relation("ReportRequestedBy")
 
+  riskCreated        Risk[]                 @relation("RiskCreatedBy")
+  riskAcceptances    RiskAcceptance[]       @relation("RiskAcceptanceDecidedBy")
+  holdsPlaced        LegalHold[]            @relation("LegalHoldPlacedBy")
+  holdsReleased      LegalHold[]            @relation("LegalHoldReleasedBy")
+  disposalsRecorded  RetentionDisposal[]    @relation("DisposalCreatedBy")
+  ropaEvidenceLinked RopaActivityEvidence[] @relation("RopaEvidenceLinkedBy")
+  lawfulBasisLinked  LawfulBasisEvidence[]  @relation("LawfulBasisEvidenceLinkedBy")
+
+  evidenceVersionsUploaded  EvidenceVersion[]            @relation("EvidenceVersionUploadedBy")
+  evidenceReviews           Evidence[]                   @relation("EvidenceReviewedBy")
+  evidenceScanAttestations  Evidence[]                   @relation("EvidenceAttestedBy")
+  dsarCreated               DsarRequest[]                @relation("DsarCreatedBy")
+  dsarCompleted             DsarRequest[]                @relation("DsarCompletedBy")
+  dsarIdentityVerifications DsarRequest[]                @relation("DsarIdentityVerifiedBy")
+  dsarExtensions            DsarExtension[]              @relation("DsarExtensionDecidedBy")
+  dsarCommunications        DsarCommunication[]          @relation("DsarCommunicationCreatedBy")
+  dsarEvidenceLinked        DsarRequestEvidence[]        @relation("DsarEvidenceLinkedBy")
+  breachesCreated           Breach[]                     @relation("BreachCreatedBy")
+  breachesClosed            Breach[]                     @relation("BreachClosedBy")
+  breachChronologyEntries   BreachChronologyEntry[]      @relation("BreachChronologyCreatedBy")
+  breachDecisions           BreachNotificationDecision[] @relation("BreachDecisionDecidedBy")
+  breachEvidenceLinked      BreachEvidence[]             @relation("BreachEvidenceLinkedBy")
+  remindersCreated          Reminder[]                   @relation("ReminderCreatedBy")
+  remindersCompleted        Reminder[]                   @relation("ReminderCompletedBy")
+  remindersCancelled        Reminder[]                   @relation("ReminderCancelledBy")
+
   @@map("users")
 }
 
@@ -175,6 +228,17 @@ model Membership {
   businessUnitsHeaded BusinessUnit[]    @relation("BusinessUnitHead")
   itemsOwned          AssessmentItem[]  @relation("ItemOwner")
   tasksAssigned       RemediationTask[] @relation("TaskAssignee")
+
+  levelsOwned         ClassificationLevel[] @relation("ClassificationLevelOwner")
+  activitiesOwned     RopaActivity[]        @relation("RopaOwner")
+  lawfulBasisOwned    LawfulBasisRecord[]   @relation("LawfulBasisOwner")
+  retentionRulesOwned RetentionRule[]       @relation("RetentionRuleOwner")
+  risksOwned          Risk[]                @relation("RiskOwner")
+  dsarRequestsOwned   DsarRequest[]         @relation("DsarOwner")
+  breachesOwned       Breach[]              @relation("BreachOwner")
+  evidenceOwned       Evidence[]            @relation("EvidenceOwner")
+  remindersAssigned   Reminder[]            @relation("ReminderAssignee")
+  reminderPreferences ReminderPreference[]
 
   @@unique([organisationId, id])
   @@unique([organisationId, userId])
@@ -479,7 +543,9 @@ model RegulatorContact {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  organisation    Organisation                 @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  /// The breach notifications that were decided against this authority (AC-BRC-01).
+  breachDecisions BreachNotificationDecision[]
 
   @@unique([organisationId, id])
   @@index([organisationId, authorityName])
@@ -514,6 +580,10 @@ model BusinessUnit {
   children         BusinessUnit[]    @relation("BusinessUnitParent")
   assessmentItems  AssessmentItem[]
   remediationTasks RemediationTask[]
+  ropaActivities   RopaActivity[]
+  risks            Risk[]
+  dsarRequests     DsarRequest[]
+  breaches         Breach[]
 
   @@unique([organisationId, id])
   @@index([organisationId, archivedAt])
@@ -540,8 +610,10 @@ model Framework {
   organisationFrameworks OrganisationFramework[]
   versions               FrameworkVersion[]
 
-  assessmentItems  AssessmentItem[]
-  remediationTasks RemediationTask[]
+  assessmentItems    AssessmentItem[]
+  remediationTasks   RemediationTask[]
+  risks              Risk[]
+  lawfulBasisRecords LawfulBasisRecord[]
 
   @@map("frameworks")
 }
@@ -712,6 +784,8 @@ model Requirement {
   organisationMappingsTo   OrganisationMapping[] @relation("OrganisationMappingTo")
   assessmentItems          AssessmentItem[]
   remediationTasks         RemediationTask[]
+  risks                    Risk[]
+  lawfulBasisRecords       LawfulBasisRecord[]
 
   @@unique([frameworkVersionId, id])
   @@unique([frameworkVersionId, ref])
@@ -754,6 +828,7 @@ model GovernanceArea {
   mappings         OrganisationMapping[]
   assessmentItems  AssessmentItem[]
   remediationTasks RemediationTask[]
+  risks            Risk[]
 
   @@unique([organisationId, id])
   @@index([organisationId, archivedAt])
@@ -924,6 +999,7 @@ model AssessmentItem {
   priority       ItemPriority?
   evidenceLinks  AssessmentItemEvidence[]
   tasks          RemediationTask[]
+  risks          Risk[]
 
   @@unique([organisationId, id])
   @@index([organisationId, assessmentId])
@@ -1054,32 +1130,85 @@ model RemediationTaskEvent {
   @@map("remediation_task_events")
 }
 
-/// An uploaded evidence file (core: upload, metadata, checksum, download, links). The bytes live in storage under
-/// an opaque key; the original filename lives only here. Versions, review and legal hold arrive in Phase 7.
+/// An evidence record in the repository (AC-EVD-01). The bytes of each version live in storage under an
+/// opaque key and are described by `evidence_versions`; this row is what a person browses, owns, reviews
+/// and puts under hold. A file's filename never appears here: it belongs to the version it describes.
 model Evidence {
+  id                String               @id @default(uuid(7)) @db.Uuid
+  organisationId    String               @map("organisation_id") @db.Uuid
+  title             String
+  description       String?
+  /// The version a plain download returns; the version rows are the whole history.
+  currentVersion    Int                  @default(1) @map("current_version")
+  /// The member accountable for this item — the one a review reminder is addressed to. Null = nobody owns it.
+  ownerMembershipId String?              @map("owner_membership_id") @db.Uuid
+  /// Whether a reviewer has accepted the content. Nothing is accepted by the platform on its own.
+  reviewStatus      EvidenceReviewStatus @default(UNREVIEWED) @map("review_status")
+  reviewedByUserId  String?              @map("reviewed_by_user_id") @db.Uuid
+  /// The reviewer's reason; required by a rejection, so the uploader knows what to fix.
+  reviewNote        String?              @map("review_note")
+  lastReviewDate    DateTime?            @map("last_review_date") @db.Date
+  nextReviewDate    DateTime?            @map("next_review_date") @db.Date
+  /// Virus-scan state of the CURRENT version, attested by a person under governance.approve. The platform
+  /// runs no scanner, so a result is always somebody's statement about an external check (and a fresh
+  /// version resets it to NOT_SCANNED — an old attestation never covers new bytes).
+  scanState         EvidenceScanState    @default(NOT_SCANNED) @map("scan_state")
+  scannedOn         DateTime?            @map("scanned_on") @db.Date
+  scanNote          String?              @map("scan_note")
+  attestedByUserId  String?              @map("attested_by_user_id") @db.Uuid
+  uploadedByUserId  String               @map("uploaded_by_user_id") @db.Uuid
+  version           Int                  @default(1)
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  organisation     Organisation              @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  uploadedBy       User                      @relation("EvidenceUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  reviewedBy       User?                     @relation("EvidenceReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: Restrict)
+  attestedBy       User?                     @relation("EvidenceAttestedBy", fields: [attestedByUserId], references: [id], onDelete: Restrict)
+  owner            Membership?               @relation("EvidenceOwner", fields: [organisationId, ownerMembershipId], references: [organisationId, id], onDelete: Restrict)
+  versions         EvidenceVersion[]
+  itemLinks        AssessmentItemEvidence[]
+  taskLinks        RemediationTaskEvidence[]
+  ropaLinks        RopaActivityEvidence[]
+  lawfulBasisLinks LawfulBasisEvidence[]
+  dsarLinks        DsarRequestEvidence[]
+  breachLinks      BreachEvidence[]
+
+  @@unique([organisationId, id])
+  @@index([organisationId, createdAt])
+  @@index([organisationId, reviewStatus])
+  @@index([organisationId, ownerMembershipId])
+  @@index([organisationId, nextReviewDate])
+  @@map("evidence")
+}
+
+/// One stored file of an evidence record, numbered from 1. Append-only: the version a report cited, a
+/// decision rested on or an audit entry named must stay downloadable after a newer file is uploaded.
+model EvidenceVersion {
   id               String   @id @default(uuid(7)) @db.Uuid
   organisationId   String   @map("organisation_id") @db.Uuid
-  title            String
-  description      String?
+  evidenceId       String   @map("evidence_id") @db.Uuid
+  /// The version this row is, 1 upward, unique per evidence record.
+  number           Int
   originalFilename String   @map("original_filename")
   contentType      String   @map("content_type")
   size             Int
   /// SHA-256 (hex) computed by the server from the stored bytes.
   sha256           String
   storageKey       String   @map("storage_key")
+  /// Why it replaced the previous file (null for version 1 and for a plain re-upload).
+  note             String?
   uploadedByUserId String   @map("uploaded_by_user_id") @db.Uuid
-  version          Int      @default(1)
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  organisation Organisation              @relation(fields: [organisationId], references: [id], onDelete: Restrict)
-  uploadedBy   User                      @relation("EvidenceUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
-  itemLinks    AssessmentItemEvidence[]
-  taskLinks    RemediationTaskEvidence[]
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  evidence     Evidence     @relation(fields: [organisationId, evidenceId], references: [organisationId, id], onDelete: Restrict)
+  uploadedBy   User         @relation("EvidenceVersionUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
 
   @@unique([organisationId, id])
-  @@index([organisationId, createdAt])
-  @@map("evidence")
+  @@unique([organisationId, evidenceId, number])
+  @@index([organisationId, evidenceId])
+  @@map("evidence_versions")
 }
 
 model AssessmentItemEvidence {
@@ -1144,4 +1273,981 @@ model Report {
   @@unique([organisationId, id])
   @@index([organisationId, createdAt])
   @@map("reports")
+}
+
+/// ---------------------------------------------------------------------------------------------
+/// Phase 5: quick-start assessment templates. GLOBAL reference data (owner decision: tables, not a
+/// code catalogue): no `organisation_id`, written only by a migration, read by every organisation and
+/// withheld from the runtime role (prisma/sql/runtime-role.sql).
+///
+/// A template lists the SUBJECTS of a first assessment (the governance areas to file work under). It
+/// carries NO ratings and NO legal text on purpose: a shipped `currentMaturity` or `targetMaturity`
+/// would be the legacy app's defect (maturity defaulted to 2, target forced to 5) and an unverified
+/// legal claim. Applying a template creates items with every rating NULL.
+/// ---------------------------------------------------------------------------------------------
+
+/// A versioned starting point for an assessment. Correcting one means publishing a NEW version, never
+/// editing a shipped row (the database blocks it), so an assessment applied from version 1 stays readable.
+model AssessmentTemplate {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  /// The stable identity of a template (`privacy-baseline`). A new edition is a NEW row with the same code and
+  /// a higher `templateVersion`: rows are never updated, so an assessment keeps saying which template it came from.
+  code            String
+  templateVersion Int      @default(1) @map("template_version")
+  name            String
+  description     String?
+  /// Where the topic list came from and what it is not: templates are FCA's own programme topics.
+  provenance      String
+  /// The named person who checked the wording before it shipped (AC-GOV-01).
+  verifiedBy      String   @map("verified_by")
+  verifiedAt      DateTime @map("verified_at") @db.Timestamptz
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  items AssessmentTemplateItem[]
+
+  @@unique([code, templateVersion])
+  @@map("assessment_templates")
+}
+
+/// One subject of a template: the governance area an item of a new assessment is filed under.
+model AssessmentTemplateItem {
+  id            String  @id @default(uuid(7)) @db.Uuid
+  templateId    String  @map("template_id") @db.Uuid
+  /// The position in the template (a stable, meaningful order for the UI).
+  orderIndex    Int     @map("order_index")
+  /// The area label. Applying reuses the organisation's ACTIVE area with the same name (case-insensitive)
+  /// and creates one only when it has none, so applying never duplicates.
+  areaName      String  @map("area_name")
+  areaReference String? @map("area_reference")
+
+  template AssessmentTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+
+  @@unique([templateId, orderIndex])
+  @@map("assessment_template_items")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Phase 6: the registers (risk, data classification, lawful basis, RoPA, retention + legal holds).
+// Conventions as before: UUIDv7 ids, timestamptz instants, DATE columns for calendar days, `version`
+// for optimistic locking, composite foreign keys to tenant parents, row-level security on every table.
+//
+// - Every scale, date and owner is NULLABLE: NULL is "not recorded" and is never displayed as a value,
+//   a zero or a verdict (skill grc-domain, section 3). Nothing here has a shipped default: an
+//   organisation that has not classified its data has NO levels, which is reported as `not_configured`.
+// - Derived columns (score, level) are written by the service from the stored factors and the database
+//   CHECK ties them together, so a stale derived value is an impossible row (the legacy defect A.12).
+// - Records are archived, never deleted, and a deletion that a retention rule covers is refused while a
+//   legal hold is in force (AC-RET-01). The acceptance ledger and the disposal log are append-only.
+// ---------------------------------------------------------------------------------------------
+
+enum RiskStatus {
+  OPEN
+  IN_TREATMENT
+  ACCEPTED
+  TRANSFERRED
+  CLOSED
+}
+
+/// The topics the reference app listed; descriptive labels an organisation files a risk under, chosen by
+/// it. A risk with no category is `null` ("not categorised"), never a guessed bucket.
+enum RiskCategory {
+  DATA_PRIVACY
+  CYBERSECURITY
+  OPERATIONAL
+  REGULATORY
+  THIRD_PARTY
+  PHYSICAL
+  REPUTATIONAL
+  FINANCIAL
+}
+
+enum RiskAcceptanceDecision {
+  ACCEPTED
+  WITHDRAWN
+}
+
+enum RopaActivityStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+/**
+ * The six reasons for processing that the reference app offered. They are the organisation's OWN words for
+ * why it processes data: the platform records the choice, the justification and who owns it and makes no
+ * legal determination that a chosen basis is valid or that any framework allows it (non-negotiable 5).
+ */
+enum LawfulBasisKind {
+  CONSENT
+  CONTRACT
+  LEGAL_OBLIGATION
+  VITAL_INTERESTS
+  PUBLIC_TASK
+  LEGITIMATE_INTEREST
+}
+
+enum LawfulBasisReviewStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+}
+
+/// What starts the clock on a retention rule. A trigger is named by the organisation; the platform never
+/// asserts that a period satisfies any law.
+enum RetentionTriggerEvent {
+  CONTRACT_END
+  DATA_NO_LONGER_NEEDED
+  REGULATORY_PERIOD
+  SUBJECT_REQUEST
+  LAST_USE
+  OTHER
+}
+
+/// Which kind of record a legal hold covers (AC-RET-01: the hold must block every disposal path).
+enum DisposalTarget {
+  EVIDENCE
+  ROPA_ACTIVITY
+  LAWFUL_BASIS_RECORD
+  RETENTION_RULE
+}
+
+/// A sensitivity level of the organisation's own scheme (AC-CLS-01): a rank that orders the levels,
+/// handling guidance, an owner and a review date. NOTHING is shipped as a default scheme: an organisation
+/// with no levels is reported as `not_configured`, and its records simply carry no classification.
+model ClassificationLevel {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  organisationId    String    @map("organisation_id") @db.Uuid
+  name              String
+  /// The position in the scheme, lowest sensitivity first. Unique per organisation INCLUDING archived
+  /// levels: a retired rank is not reused, so an old record's place in the order never changes.
+  rank              Int       @db.SmallInt
+  description       String?
+  handlingGuidance  String?   @map("handling_guidance")
+  ownerMembershipId String?   @map("owner_membership_id") @db.Uuid
+  lastReviewDate    DateTime? @map("last_review_date") @db.Date
+  nextReviewDate    DateTime? @map("next_review_date") @db.Date
+  archivedAt        DateTime? @map("archived_at") @db.Timestamptz
+  version           Int       @default(1)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  organisation   Organisation    @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  owner          Membership?     @relation("ClassificationLevelOwner", fields: [organisationId, ownerMembershipId], references: [organisationId, id], onDelete: Restrict)
+  ropaActivities RopaActivity[]
+  retentionRules RetentionRule[]
+
+  @@unique([organisationId, id])
+  @@unique([organisationId, rank])
+  @@index([organisationId, archivedAt])
+  @@map("classification_levels")
+}
+
+/// A record of processing (AC-ROPA-01). The descriptive fields are the organisation's own text; each is
+/// NULL when nobody has recorded it, and an absent value is reported as absent. Review cadence, lead
+/// window and dates are per record (AC-ROPA-02); the review state is computed by the service in the
+/// organisation's time zone, never stored.
+model RopaActivity {
+  id                     String             @id @default(uuid(7)) @db.Uuid
+  organisationId         String             @map("organisation_id") @db.Uuid
+  name                   String
+  businessUnitId         String?            @map("business_unit_id") @db.Uuid
+  classificationLevelId  String?            @map("classification_level_id") @db.Uuid
+  retentionRuleId        String?            @map("retention_rule_id") @db.Uuid
+  purpose                String?
+  dataSubjects           String?            @map("data_subjects")
+  personalDataCategories String?            @map("personal_data_categories")
+  recipients             String?
+  processors             String?
+  retention              String?
+  internationalTransfers String?            @map("international_transfers")
+  transferCountries      String?            @map("transfer_countries")
+  securityMeasures       String?            @map("security_measures")
+  ownerMembershipId      String?            @map("owner_membership_id") @db.Uuid
+  status                 RopaActivityStatus @default(DRAFT)
+  /// Days between reviews (the record's own cadence); null = no cadence set, which is not "never due".
+  reviewIntervalDays     Int?               @map("review_interval_days")
+  /// Days before the next review date at which it counts as due soon; null = the reference lead window.
+  reviewLeadDays         Int?               @map("review_lead_days")
+  lastReviewDate         DateTime?          @map("last_review_date") @db.Date
+  nextReviewDate         DateTime?          @map("next_review_date") @db.Date
+  archivedAt             DateTime?          @map("archived_at") @db.Timestamptz
+  version                Int                @default(1)
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  organisation        Organisation           @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  businessUnit        BusinessUnit?          @relation(fields: [organisationId, businessUnitId], references: [organisationId, id], onDelete: Restrict)
+  classificationLevel ClassificationLevel?   @relation(fields: [organisationId, classificationLevelId], references: [organisationId, id], onDelete: Restrict)
+  retentionRule       RetentionRule?         @relation(fields: [organisationId, retentionRuleId], references: [organisationId, id], onDelete: Restrict)
+  owner               Membership?            @relation("RopaOwner", fields: [organisationId, ownerMembershipId], references: [organisationId, id], onDelete: Restrict)
+  lawfulBasisRecords  LawfulBasisRecord[]
+  evidenceLinks       RopaActivityEvidence[]
+
+  @@unique([organisationId, id])
+  @@index([organisationId, status])
+  @@index([organisationId, businessUnitId])
+  @@index([organisationId, classificationLevelId])
+  @@index([organisationId, nextReviewDate])
+  @@map("ropa_activities")
+}
+
+/// Evidence supporting a processing activity. Same shape as the Phase 5 link tables.
+model RopaActivityEvidence {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organisationId String   @map("organisation_id") @db.Uuid
+  activityId     String   @map("activity_id") @db.Uuid
+  evidenceId     String   @map("evidence_id") @db.Uuid
+  linkedByUserId String   @map("linked_by_user_id") @db.Uuid
+  linkedAt       DateTime @default(now()) @map("linked_at") @db.Timestamptz
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  activity     RopaActivity @relation(fields: [organisationId, activityId], references: [organisationId, id], onDelete: Restrict)
+  evidence     Evidence     @relation(fields: [organisationId, evidenceId], references: [organisationId, id], onDelete: Restrict)
+  linkedBy     User         @relation("RopaEvidenceLinkedBy", fields: [linkedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, activityId, evidenceId])
+  @@index([organisationId, evidenceId])
+  @@map("ropa_activity_evidence")
+}
+
+/// Why the organisation says it processes something, in its own words (AC-LB-01). It may point at a
+/// processing activity and at a framework requirement; a requirement link is the organisation's claim about
+/// which requirement it is answering, not a statement by the platform that the requirement is met.
+model LawfulBasisRecord {
+  id                   String                  @id @default(uuid(7)) @db.Uuid
+  organisationId       String                  @map("organisation_id") @db.Uuid
+  purpose              String
+  basis                LawfulBasisKind
+  frameworkId          String?                 @map("framework_id") @db.Uuid
+  requirementId        String?                 @map("requirement_id") @db.Uuid
+  processingActivityId String?                 @map("processing_activity_id") @db.Uuid
+  justification        String?
+  reviewStatus         LawfulBasisReviewStatus @default(DRAFT) @map("review_status")
+  ownerMembershipId    String?                 @map("owner_membership_id") @db.Uuid
+  reviewIntervalDays   Int?                    @map("review_interval_days")
+  reviewLeadDays       Int?                    @map("review_lead_days")
+  lastReviewDate       DateTime?               @map("last_review_date") @db.Date
+  nextReviewDate       DateTime?               @map("next_review_date") @db.Date
+  archivedAt           DateTime?               @map("archived_at") @db.Timestamptz
+  version              Int                     @default(1)
+  createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+
+  organisation       Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  framework          Framework?            @relation(fields: [frameworkId], references: [id], onDelete: Restrict)
+  requirement        Requirement?          @relation(fields: [requirementId], references: [id], onDelete: Restrict)
+  processingActivity RopaActivity?         @relation(fields: [organisationId, processingActivityId], references: [organisationId, id], onDelete: Restrict)
+  owner              Membership?           @relation("LawfulBasisOwner", fields: [organisationId, ownerMembershipId], references: [organisationId, id], onDelete: Restrict)
+  evidenceLinks      LawfulBasisEvidence[]
+
+  @@unique([organisationId, id])
+  @@index([organisationId, basis])
+  @@index([organisationId, reviewStatus])
+  @@index([organisationId, processingActivityId])
+  @@index([organisationId, nextReviewDate])
+  @@map("lawful_basis_records")
+}
+
+model LawfulBasisEvidence {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organisationId String   @map("organisation_id") @db.Uuid
+  recordId       String   @map("record_id") @db.Uuid
+  evidenceId     String   @map("evidence_id") @db.Uuid
+  linkedByUserId String   @map("linked_by_user_id") @db.Uuid
+  linkedAt       DateTime @default(now()) @map("linked_at") @db.Timestamptz
+
+  organisation Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  record       LawfulBasisRecord @relation(fields: [organisationId, recordId], references: [organisationId, id], onDelete: Restrict)
+  evidence     Evidence          @relation(fields: [organisationId, evidenceId], references: [organisationId, id], onDelete: Restrict)
+  linkedBy     User              @relation("LawfulBasisEvidenceLinkedBy", fields: [linkedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, recordId, evidenceId])
+  @@index([organisationId, evidenceId])
+  @@map("lawful_basis_evidence")
+}
+
+/// How long a class of data is kept and how it is destroyed (AC-RET-01). A period is a number of days the
+/// organisation chose, with the trigger that starts it: the platform does not know any statutory period and
+/// asserts none. `exceptions` is the organisation's own note about what it keeps longer or shorter.
+model RetentionRule {
+  id                    String                 @id @default(uuid(7)) @db.Uuid
+  organisationId        String                 @map("organisation_id") @db.Uuid
+  name                  String
+  classificationLevelId String?                @map("classification_level_id") @db.Uuid
+  dataCategory          String?                @map("data_category")
+  systemLocation        String?                @map("system_location")
+  triggerEvent          RetentionTriggerEvent? @map("trigger_event")
+  retentionPeriodDays   Int?                   @map("retention_period_days")
+  gracePeriodDays       Int?                   @map("grace_period_days")
+  disposalMethod        String?                @map("disposal_method")
+  exceptions            String?
+  ownerMembershipId     String?                @map("owner_membership_id") @db.Uuid
+  lastReviewDate        DateTime?              @map("last_review_date") @db.Date
+  nextReviewDate        DateTime?              @map("next_review_date") @db.Date
+  archivedAt            DateTime?              @map("archived_at") @db.Timestamptz
+  version               Int                    @default(1)
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz
+
+  organisation        Organisation         @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  classificationLevel ClassificationLevel? @relation(fields: [organisationId, classificationLevelId], references: [organisationId, id], onDelete: Restrict)
+  owner               Membership?          @relation("RetentionRuleOwner", fields: [organisationId, ownerMembershipId], references: [organisationId, id], onDelete: Restrict)
+  ropaActivities      RopaActivity[]
+  holds               LegalHold[]
+  disposals           RetentionDisposal[]
+
+  @@unique([organisationId, id])
+  @@index([organisationId, archivedAt])
+  @@index([organisationId, classificationLevelId])
+  @@index([organisationId, nextReviewDate])
+  @@map("retention_rules")
+}
+
+/// A hold that stops disposal under one rule (AC-RET-01). Scope: one named record of a named kind, or the
+/// whole rule when no record is named. Placed and released with a reason; every change is audited.
+model LegalHold {
+  id               String          @id @default(uuid(7)) @db.Uuid
+  organisationId   String          @map("organisation_id") @db.Uuid
+  ruleId           String          @map("rule_id") @db.Uuid
+  coveredKind      DisposalTarget? @map("covered_kind")
+  coveredRecordId  String?         @map("covered_record_id") @db.Uuid
+  reason           String
+  placedByUserId   String          @map("placed_by_user_id") @db.Uuid
+  placedAt         DateTime        @default(now()) @map("placed_at") @db.Timestamptz
+  releasedAt       DateTime?       @map("released_at") @db.Timestamptz
+  releasedByUserId String?         @map("released_by_user_id") @db.Uuid
+  releaseReason    String?         @map("release_reason")
+  version          Int             @default(1)
+
+  organisation Organisation  @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  rule         RetentionRule @relation(fields: [organisationId, ruleId], references: [organisationId, id], onDelete: Restrict)
+  placedBy     User          @relation("LegalHoldPlacedBy", fields: [placedByUserId], references: [id], onDelete: Restrict)
+  releasedBy   User?         @relation("LegalHoldReleasedBy", fields: [releasedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, id])
+  @@index([organisationId, ruleId])
+  @@index([organisationId, releasedAt])
+  @@index([organisationId, coveredKind, coveredRecordId])
+  @@map("legal_holds")
+}
+
+/// The log of a disposal carried out under a rule: the date, the organisation's note and how many records
+/// it covered. Append-only (trigger in the migration, privilege withheld from the runtime role): what was
+/// destroyed must not be re-written after the fact. It carries no personal data (non-negotiable 9).
+model RetentionDisposal {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  organisationId  String   @map("organisation_id") @db.Uuid
+  ruleId          String   @map("rule_id") @db.Uuid
+  disposedOn      DateTime @map("disposed_on") @db.Date
+  note            String
+  itemCount       Int?     @map("item_count")
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organisation Organisation  @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  rule         RetentionRule @relation(fields: [organisationId, ruleId], references: [organisationId, id], onDelete: Restrict)
+  createdBy    User          @relation("DisposalCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, id])
+  @@index([organisationId, ruleId, disposedOn(sort: Desc)])
+  @@map("retention_disposals")
+}
+
+/// A risk the organisation tracks (AC-RISK-01). Inherent and residual likelihood/severity are what a person
+/// entered; score and level are the server's derivation under `risk_matrix_v1` and are tied to the factors
+/// by a database CHECK. Residual is never above inherent. `reviewByDate` is judged in the organisation's
+/// zone; nothing is overdue by absence.
+model Risk {
+  id                 String        @id @default(uuid(7)) @db.Uuid
+  organisationId     String        @map("organisation_id") @db.Uuid
+  title              String
+  description        String?
+  category           RiskCategory?
+  governanceAreaId   String?       @map("governance_area_id") @db.Uuid
+  requirementId      String?       @map("requirement_id") @db.Uuid
+  assessmentItemId   String?       @map("assessment_item_id") @db.Uuid
+  businessUnitId     String?       @map("business_unit_id") @db.Uuid
+  frameworkId        String?       @map("framework_id") @db.Uuid
+  status             RiskStatus    @default(OPEN)
+  ownerMembershipId  String?       @map("owner_membership_id") @db.Uuid
+  treatmentPlan      String?       @map("treatment_plan")
+  inherentLikelihood Int?          @map("inherent_likelihood") @db.SmallInt
+  inherentSeverity   Int?          @map("inherent_severity") @db.SmallInt
+  inherentScore      Int?          @map("inherent_score") @db.SmallInt
+  inherentLevel      RiskLevel?    @map("inherent_level")
+  residualLikelihood Int?          @map("residual_likelihood") @db.SmallInt
+  residualSeverity   Int?          @map("residual_severity") @db.SmallInt
+  residualScore      Int?          @map("residual_score") @db.SmallInt
+  residualLevel      RiskLevel?    @map("residual_level")
+  methodologyId      String        @default("risk_matrix_v1") @map("methodology_id")
+  methodologyVersion Int           @default(1) @map("methodology_version")
+  reviewByDate       DateTime?     @map("review_by_date") @db.Date
+  identifiedOn       DateTime?     @map("identified_on") @db.Date
+  createdByUserId    String        @map("created_by_user_id") @db.Uuid
+  version            Int           @default(1)
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  organisation   Organisation     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  governanceArea GovernanceArea?  @relation(fields: [organisationId, governanceAreaId], references: [organisationId, id], onDelete: Restrict)
+  requirement    Requirement?     @relation(fields: [requirementId], references: [id], onDelete: Restrict)
+  assessmentItem AssessmentItem?  @relation(fields: [organisationId, assessmentItemId], references: [organisationId, id], onDelete: Restrict)
+  businessUnit   BusinessUnit?    @relation(fields: [organisationId, businessUnitId], references: [organisationId, id], onDelete: Restrict)
+  framework      Framework?       @relation(fields: [frameworkId], references: [id], onDelete: Restrict)
+  owner          Membership?      @relation("RiskOwner", fields: [organisationId, ownerMembershipId], references: [organisationId, id], onDelete: Restrict)
+  createdBy      User             @relation("RiskCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  acceptances    RiskAcceptance[]
+
+  @@unique([organisationId, id])
+  @@index([organisationId, status])
+  @@index([organisationId, reviewByDate])
+  @@index([organisationId, businessUnitId])
+  @@index([organisationId, category])
+  @@map("risks")
+}
+
+/// The acceptance ledger of a risk (AC-RISK-02): one row per decision to accept or to withdraw an
+/// acceptance, with who decided, when, why and until when. Append-only, so the history of a risk that was
+/// accepted, closed and reopened stays readable. The acceptance in force is the newest row for the risk.
+model RiskAcceptance {
+  id              String                 @id @default(uuid(7)) @db.Uuid
+  organisationId  String                 @map("organisation_id") @db.Uuid
+  riskId          String                 @map("risk_id") @db.Uuid
+  decision        RiskAcceptanceDecision
+  rationale       String
+  decidedByUserId String                 @map("decided_by_user_id") @db.Uuid
+  decidedAt       DateTime               @default(now()) @map("decided_at") @db.Timestamptz
+  expiresOn       DateTime?              @map("expires_on") @db.Date
+  reviewOn        DateTime?              @map("review_on") @db.Date
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  risk         Risk         @relation(fields: [organisationId, riskId], references: [organisationId, id], onDelete: Restrict)
+  decidedBy    User         @relation("RiskAcceptanceDecidedBy", fields: [decidedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, id])
+  @@index([organisationId, riskId, decidedAt(sort: Desc)])
+  @@map("risk_acceptances")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Phase 7: incidents and rights — DSAR tracker, breach registry, evidence repository, reminders.
+//
+// - A deadline is measured against the policy that was in force when the record was made: the days AND the
+//   dates they produce are frozen on the row (as a Phase 5 cycle freezes its exposure bands), so editing the
+//   policy later never moves a past case's deadline or re-writes its history.
+// - NULL means "not configured" — never zero, never a verdict. An organisation with no deadline policy has
+//   no due dates, and its metrics answer `not_configured`. Unlike the remediation due-day table, there is
+//   NO reference default here: the platform does not invent a statutory window nobody chose (AC-DSAR-03).
+// - Chronologies, extensions, decisions, file versions and alert deliveries are append-only (trigger in the
+//   migration plus REVOKE for the runtime role). Incidents are completed, refused, withdrawn or closed;
+//   nothing here is deleted.
+// - Alert emails carry a link and the record's reference only — no subject name, no breach text, no
+//   organisation data (non-negotiable 9). Job payloads carry ids only.
+// ---------------------------------------------------------------------------------------------
+
+/// The seven request kinds of a data subject rights tracker. `null` does not exist: a request is always
+/// typed by the person who recorded it, and `OTHER` is the honest bucket for anything they cannot name.
+enum DsarRequestType {
+  ACCESS
+  RECTIFICATION
+  ERASURE
+  RESTRICTION
+  PORTABILITY
+  OBJECTION
+  OTHER
+}
+
+enum DsarStatus {
+  RECEIVED
+  VERIFYING
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  REFUSED
+  WITHDRAWN
+}
+
+/// Whether the requester's identity was proven. `REQUESTED` is the state while evidence is awaited; a
+/// request is never treated as verified by merely having been received.
+enum DsarIdentityState {
+  NOT_STARTED
+  REQUESTED
+  VERIFIED
+  FAILED
+}
+
+/// Who the note came from: a message to the data subject, a message received, or an internal note.
+enum DsarCommunicationKind {
+  OUTBOUND
+  INBOUND
+  NOTE
+}
+
+enum BreachStatus {
+  RECORDED
+  INVESTIGATING
+  REMEDIATING
+  CLOSED
+}
+
+/// The phases a breach record documents. A step is an entry in the chronology, not a status: a breach can
+/// be contained while still being investigated, and the order in which a person recorded it stays visible.
+enum BreachChronologyKind {
+  DETECTION
+  INVESTIGATION
+  CONTAINMENT
+  IMPACT
+  REMEDIATION
+  NOTE
+}
+
+/// The state a breach's notification duty is in, maintained from the newest recorded decision.
+enum BreachNotificationState {
+  UNDECIDED
+  NOTIFICATION_REQUIRED
+  NOT_REQUIRED
+}
+
+/// One decision: notify the authority, or record that notification is not required and why.
+enum BreachNotificationDecisionKind {
+  REQUIRED
+  NOT_REQUIRED
+}
+
+enum AlertKind {
+  DSAR_DUE_SOON
+  DSAR_OVERDUE
+  BREACH_RECORDED
+  BREACH_ASSESSMENT_DUE
+  BREACH_NOTIFICATION_DUE
+  REMINDER_DUE_SOON
+  REMINDER_OVERDUE
+}
+
+enum AlertStatus {
+  QUEUED
+  SENT
+  FAILED
+  SKIPPED
+}
+
+/// Why an alert was not sent. Each is a fact about the record at send time, re-read by the handler.
+enum AlertSkipReason {
+  NO_RECIPIENT
+  PREFERENCE_OFF
+  STALE_DEADLINE
+  ALREADY_HANDLED
+}
+
+/// Whether a reviewer has accepted an evidence item's content. `UNREVIEWED` is the state of everything
+/// that has never been looked at — it is not a judgement, and it is not "failed".
+enum EvidenceReviewStatus {
+  UNREVIEWED
+  UNDER_REVIEW
+  ACCEPTED
+  REJECTED
+}
+
+/// Scan state of the evidence's current file, attested by a person under governance.approve. The platform
+/// runs no scanner; `CLEAN` is somebody's statement about an external check, recorded with its date.
+enum EvidenceScanState {
+  NOT_SCANNED
+  CLEAN
+  INFECTED
+  UNABLE_TO_SCAN
+}
+
+enum ReminderStatus {
+  PENDING
+  DONE
+  CANCELLED
+}
+
+/// What a reminder is about. The reference is polymorphic (kind + id + a label, as a legal hold's scope
+/// is), so a reminder can point at any register without the schema growing a column per target.
+enum ReminderSourceKind {
+  DSAR_REQUEST
+  BREACH
+  EVIDENCE
+  RISK
+  REMEDIATION_TASK
+  OTHER
+}
+
+/// The organisation's own deadline choices (AC-DSAR-03, AC-BRC-01). One row at most, like the assessment
+/// policy, and every column is nullable: a column that has never been set makes the records that would
+/// have used it report `not_configured` instead of a date. There is no shipped default for any of them —
+/// a statutory window is a legal fact the platform does not guess.
+model DeadlinePolicy {
+  id                     String   @id @default(uuid(7)) @db.Uuid
+  organisationId         String   @unique @map("organisation_id") @db.Uuid
+  /// Calendar days a data subject request gets from the date it was received.
+  dsarResponseDays       Int?     @map("dsar_response_days")
+  /// Calendar days one extension may add. Null = this organisation records no extensions.
+  dsarExtensionDays      Int?     @map("dsar_extension_days")
+  /// How many extensions one request may take. Null = none allowed.
+  dsarExtensionLimit     Int?     @map("dsar_extension_limit")
+  /// Calendar days from detection to the end of the assessment of a breach.
+  breachAssessmentDays   Int?     @map("breach_assessment_days")
+  /// Calendar days from detection to the notification decision deadline.
+  breachNotificationDays Int?     @map("breach_notification_days")
+  /// How many calendar days before a deadline a "due soon" alert goes out. Null = only overdue alerts.
+  alertLeadDays          Int?     @map("alert_lead_days")
+  version                Int      @default(1)
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  organisation Organisation  @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  dsarRequests DsarRequest[]
+  breaches     Breach[]
+
+  @@unique([organisationId, id])
+  @@map("deadline_policies")
+}
+
+/// A request from a data subject (AC-DSAR-01). `subjectName`/`subjectEmail`/`summary` are personal data:
+/// they stay in this table and never enter an email, a job payload, a log line or an audit change value.
+/// The policy numbers and the dates they produced are copied in at creation, so the SLA a later report
+/// shows is the SLA this request was actually worked to.
+model DsarRequest {
+  id                       String            @id @default(uuid(7)) @db.Uuid
+  organisationId           String            @map("organisation_id") @db.Uuid
+  requestType              DsarRequestType   @map("request_type")
+  summary                  String?
+  subjectName              String?           @map("subject_name")
+  subjectEmail             String?           @map("subject_email")
+  receivedOn               DateTime          @map("received_on") @db.Date
+  status                   DsarStatus        @default(RECEIVED)
+  businessUnitId           String?           @map("business_unit_id") @db.Uuid
+  ownerMembershipId        String?           @map("owner_membership_id") @db.Uuid
+  identityState            DsarIdentityState @default(NOT_STARTED) @map("identity_state")
+  identityVerifiedOn       DateTime?         @map("identity_verified_on") @db.Date
+  identityVerifiedByUserId String?           @map("identity_verified_by_user_id") @db.Uuid
+  identityNote             String?           @map("identity_note")
+  /// The policy row this request was measured against, and the numbers it held. Null = none existed.
+  policyId                 String?           @map("policy_id") @db.Uuid
+  responseDays             Int?              @map("response_days")
+  /// receivedOn + responseDays, before any extension. Kept so the arithmetic of `dueOn` stays checkable.
+  baseDueOn                DateTime?         @map("base_due_on") @db.Date
+  extensionDays            Int               @default(0) @map("extension_days")
+  extensionCount           Int               @default(0) @map("extension_count")
+  dueOn                    DateTime?         @map("due_on") @db.Date
+  /// The person's words at closure: the outcome of a refusal or a withdrawal must be recorded, not implied.
+  closureNote              String?           @map("closure_note")
+  completedOn              DateTime?         @map("completed_on") @db.Date
+  completedByUserId        String?           @map("completed_by_user_id") @db.Uuid
+  createdByUserId          String            @map("created_by_user_id") @db.Uuid
+  version                  Int               @default(1)
+  createdAt                DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  organisation       Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  businessUnit       BusinessUnit?         @relation(fields: [organisationId, businessUnitId], references: [organisationId, id], onDelete: Restrict)
+  owner              Membership?           @relation("DsarOwner", fields: [organisationId, ownerMembershipId], references: [organisationId, id], onDelete: Restrict)
+  policy             DeadlinePolicy?       @relation(fields: [organisationId, policyId], references: [organisationId, id], onDelete: Restrict)
+  identityVerifiedBy User?                 @relation("DsarIdentityVerifiedBy", fields: [identityVerifiedByUserId], references: [id], onDelete: Restrict)
+  completedBy        User?                 @relation("DsarCompletedBy", fields: [completedByUserId], references: [id], onDelete: Restrict)
+  createdBy          User                  @relation("DsarCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  extensions         DsarExtension[]
+  communications     DsarCommunication[]
+  evidenceLinks      DsarRequestEvidence[]
+  alertDeliveries    AlertDelivery[]
+
+  @@unique([organisationId, id])
+  @@index([organisationId, status])
+  @@index([organisationId, dueOn])
+  @@index([organisationId, receivedOn(sort: Desc)])
+  @@index([organisationId, ownerMembershipId])
+  @@index([organisationId, requestType])
+  @@map("dsar_requests")
+}
+
+/// The extension ledger of a request: one row per granted extension, with the date it moved from, the date
+/// it moved to and the reason. Append-only, and the policy's day count and limit are what the service checks
+/// against the FROZEN numbers on the request.
+model DsarExtension {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  organisationId  String   @map("organisation_id") @db.Uuid
+  dsarRequestId   String   @map("dsar_request_id") @db.Uuid
+  days            Int
+  reason          String
+  previousDueOn   DateTime @map("previous_due_on") @db.Date
+  newDueOn        DateTime @map("new_due_on") @db.Date
+  decidedByUserId String   @map("decided_by_user_id") @db.Uuid
+  decidedAt       DateTime @default(now()) @map("decided_at") @db.Timestamptz
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  request      DsarRequest  @relation(fields: [organisationId, dsarRequestId], references: [organisationId, id], onDelete: Restrict)
+  decidedBy    User         @relation("DsarExtensionDecidedBy", fields: [decidedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, id])
+  @@index([organisationId, dsarRequestId])
+  @@map("dsar_extensions")
+}
+
+/// The communication log of a request (AC-DSAR-01). Append-only: what was asked of the data subject and
+/// what they replied is part of the record of the case. Notes are free text and stay out of emails.
+model DsarCommunication {
+  id              String                @id @default(uuid(7)) @db.Uuid
+  organisationId  String                @map("organisation_id") @db.Uuid
+  dsarRequestId   String                @map("dsar_request_id") @db.Uuid
+  kind            DsarCommunicationKind
+  occurredOn      DateTime              @map("occurred_on") @db.Date
+  note            String
+  createdByUserId String                @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  request      DsarRequest  @relation(fields: [organisationId, dsarRequestId], references: [organisationId, id], onDelete: Restrict)
+  createdBy    User         @relation("DsarCommunicationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, id])
+  @@index([organisationId, dsarRequestId])
+  @@map("dsar_communications")
+}
+
+/// Evidence attached to a request (closure proof, the verified identity, the copy delivered). Same shape as
+/// the Phase 5 and 6 link tables.
+model DsarRequestEvidence {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organisationId String   @map("organisation_id") @db.Uuid
+  dsarRequestId  String   @map("dsar_request_id") @db.Uuid
+  evidenceId     String   @map("evidence_id") @db.Uuid
+  linkedByUserId String   @map("linked_by_user_id") @db.Uuid
+  linkedAt       DateTime @default(now()) @map("linked_at") @db.Timestamptz
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  request      DsarRequest  @relation(fields: [organisationId, dsarRequestId], references: [organisationId, id], onDelete: Restrict)
+  evidence     Evidence     @relation(fields: [organisationId, evidenceId], references: [organisationId, id], onDelete: Restrict)
+  linkedBy     User         @relation("DsarEvidenceLinkedBy", fields: [linkedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, dsarRequestId, evidenceId])
+  @@index([organisationId, evidenceId])
+  @@map("dsar_request_evidence")
+}
+
+/// A personal data breach the organisation records (AC-BRC-01). Containment, investigation and remediation
+/// are chronology entries rather than columns, so a step that happens twice is recorded twice and the
+/// order it was seen in stays visible. Assessment and notification deadlines are frozen from the policy.
+model Breach {
+  id                   String                  @id @default(uuid(7)) @db.Uuid
+  organisationId       String                  @map("organisation_id") @db.Uuid
+  title                String
+  description          String?
+  status               BreachStatus            @default(RECORDED)
+  detectedOn           DateTime                @map("detected_on") @db.Date
+  /// The categories of data and of subjects affected, in the organisation's own words.
+  affectedData         String?                 @map("affected_data")
+  affectedSubjectCount Int?                    @map("affected_subject_count")
+  /// The severity a person assessed, on the organisation's risk scale. Null = not assessed yet.
+  severity             RiskLevel?
+  /// The assessed consequence for data subjects — free text, never sent in an email.
+  impact               String?
+  businessUnitId       String?                 @map("business_unit_id") @db.Uuid
+  ownerMembershipId    String?                 @map("owner_membership_id") @db.Uuid
+  policyId             String?                 @map("policy_id") @db.Uuid
+  assessmentDays       Int?                    @map("assessment_days")
+  notificationDays     Int?                    @map("notification_days")
+  assessmentDueOn      DateTime?               @map("assessment_due_on") @db.Date
+  notificationDueOn    DateTime?               @map("notification_due_on") @db.Date
+  notificationState    BreachNotificationState @default(UNDECIDED)
+  closedOn             DateTime?               @map("closed_on") @db.Date
+  closedByUserId       String?                 @map("closed_by_user_id") @db.Uuid
+  closureNote          String?                 @map("closure_note")
+  createdByUserId      String                  @map("created_by_user_id") @db.Uuid
+  version              Int                     @default(1)
+  createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+
+  organisation    Organisation                 @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  businessUnit    BusinessUnit?                @relation(fields: [organisationId, businessUnitId], references: [organisationId, id], onDelete: Restrict)
+  owner           Membership?                  @relation("BreachOwner", fields: [organisationId, ownerMembershipId], references: [organisationId, id], onDelete: Restrict)
+  policy          DeadlinePolicy?              @relation(fields: [organisationId, policyId], references: [organisationId, id], onDelete: Restrict)
+  closedBy        User?                        @relation("BreachClosedBy", fields: [closedByUserId], references: [id], onDelete: Restrict)
+  createdBy       User                         @relation("BreachCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  chronology      BreachChronologyEntry[]
+  decisions       BreachNotificationDecision[]
+  evidenceLinks   BreachEvidence[]
+  alertDeliveries AlertDelivery[]
+
+  @@unique([organisationId, id])
+  @@index([organisationId, status])
+  @@index([organisationId, detectedOn(sort: Desc)])
+  @@index([organisationId, notificationDueOn])
+  @@index([organisationId, ownerMembershipId])
+  @@map("breaches")
+}
+
+/// The append-only timeline of a breach: how it was found, what was done about it, what was learned. The
+/// database rejects UPDATE and DELETE (trigger in the migration).
+model BreachChronologyEntry {
+  id              String               @id @default(uuid(7)) @db.Uuid
+  organisationId  String               @map("organisation_id") @db.Uuid
+  breachId        String               @map("breach_id") @db.Uuid
+  kind            BreachChronologyKind
+  occurredOn      DateTime             @map("occurred_on") @db.Date
+  note            String
+  createdByUserId String               @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  breach       Breach       @relation(fields: [organisationId, breachId], references: [organisationId, id], onDelete: Restrict)
+  createdBy    User         @relation("BreachChronologyCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, id])
+  @@index([organisationId, breachId])
+  @@map("breach_chronology_entries")
+}
+
+/// One notification decision for a breach, including the decision that notification is NOT required and the
+/// reason for it (AC-BRC-01). Append-only: reversing a decision adds a row, it does not erase the old one,
+/// so an authority asking what was known on a given date gets an answer.
+model BreachNotificationDecision {
+  id                 String                         @id @default(uuid(7)) @db.Uuid
+  organisationId     String                         @map("organisation_id") @db.Uuid
+  breachId           String                         @map("breach_id") @db.Uuid
+  decision           BreachNotificationDecisionKind
+  /// The authority the organisation keeps in its regulator list, when it has one for it.
+  regulatorContactId String?                        @map("regulator_contact_id") @db.Uuid
+  /// Or the authority typed in for this decision, when it is not in the list.
+  authorityName      String?                        @map("authority_name")
+  targetDate         DateTime?                      @map("target_date") @db.Date
+  reason             String
+  decidedByUserId    String                         @map("decided_by_user_id") @db.Uuid
+  decidedAt          DateTime                       @default(now()) @map("decided_at") @db.Timestamptz
+  createdAt          DateTime                       @default(now()) @map("created_at") @db.Timestamptz
+
+  organisation Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  breach       Breach            @relation(fields: [organisationId, breachId], references: [organisationId, id], onDelete: Restrict)
+  regulator    RegulatorContact? @relation(fields: [organisationId, regulatorContactId], references: [organisationId, id], onDelete: Restrict)
+  decidedBy    User              @relation("BreachDecisionDecidedBy", fields: [decidedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, id])
+  @@index([organisationId, breachId, decidedAt(sort: Desc)])
+  @@map("breach_notification_decisions")
+}
+
+/// Evidence attached to a breach (the forensic report, the notification receipt). Same link shape.
+model BreachEvidence {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organisationId String   @map("organisation_id") @db.Uuid
+  breachId       String   @map("breach_id") @db.Uuid
+  evidenceId     String   @map("evidence_id") @db.Uuid
+  linkedByUserId String   @map("linked_by_user_id") @db.Uuid
+  linkedAt       DateTime @default(now()) @map("linked_at") @db.Timestamptz
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  breach       Breach       @relation(fields: [organisationId, breachId], references: [organisationId, id], onDelete: Restrict)
+  evidence     Evidence     @relation(fields: [organisationId, evidenceId], references: [organisationId, id], onDelete: Restrict)
+  linkedBy     User         @relation("BreachEvidenceLinkedBy", fields: [linkedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, breachId, evidenceId])
+  @@index([organisationId, evidenceId])
+  @@map("breach_evidence")
+}
+
+/// A date the organisation wants to be told about (AC-REMD-01). Assigned, completed or cancelled — never
+/// deleted, because "who was reminded of what, and did they act" is part of the record. The due-soon alert
+/// uses `leadDays` when the reminder sets one and the policy's `alertLeadDays` otherwise.
+model Reminder {
+  id                   String              @id @default(uuid(7)) @db.Uuid
+  organisationId       String              @map("organisation_id") @db.Uuid
+  title                String
+  note                 String?
+  dueOn                DateTime            @map("due_on") @db.Date
+  leadDays             Int?                @map("lead_days")
+  status               ReminderStatus      @default(PENDING)
+  assigneeMembershipId String?             @map("assignee_membership_id") @db.Uuid
+  sourceKind           ReminderSourceKind? @map("source_kind")
+  /// Polymorphic like a legal hold's scope: the service checks the id belongs to this organisation.
+  sourceId             String?             @map("source_id") @db.Uuid
+  /// The reference as it read when the reminder was made (e.g. `DSAR-1f3a9c22`), so the list stays
+  /// readable after the record is renamed. Never personal data.
+  sourceLabel          String?             @map("source_label")
+  createdByUserId      String              @map("created_by_user_id") @db.Uuid
+  completedOn          DateTime?           @map("completed_on") @db.Timestamptz
+  completedByUserId    String?             @map("completed_by_user_id") @db.Uuid
+  cancelledOn          DateTime?           @map("cancelled_on") @db.Timestamptz
+  cancelledByUserId    String?             @map("cancelled_by_user_id") @db.Uuid
+  cancelReason         String?             @map("cancel_reason")
+  version              Int                 @default(1)
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+
+  organisation    Organisation    @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  assignee        Membership?     @relation("ReminderAssignee", fields: [organisationId, assigneeMembershipId], references: [organisationId, id], onDelete: Restrict)
+  createdBy       User            @relation("ReminderCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  completedBy     User?           @relation("ReminderCompletedBy", fields: [completedByUserId], references: [id], onDelete: Restrict)
+  cancelledBy     User?           @relation("ReminderCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: Restrict)
+  alertDeliveries AlertDelivery[]
+
+  @@unique([organisationId, id])
+  @@index([organisationId, status, dueOn])
+  @@index([organisationId, assigneeMembershipId])
+  @@index([organisationId, dueOn])
+  @@map("reminders")
+}
+
+/// One member's email choices for reminders addressed to them (AC-REMD-01). Opt-out only: the mandatory
+/// alerts a breach or a data subject request raise to the designated DPO contact are not a preference and
+/// no setting here can silence them.
+model ReminderPreference {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organisationId String   @map("organisation_id") @db.Uuid
+  membershipId   String   @map("membership_id") @db.Uuid
+  emailDueSoon   Boolean  @default(true) @map("email_due_soon")
+  emailOverdue   Boolean  @default(true) @map("email_overdue")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  membership   Membership   @relation(fields: [organisationId, membershipId], references: [organisationId, id], onDelete: Restrict)
+
+  @@unique([organisationId, membershipId])
+  @@unique([organisationId, id])
+  @@map("reminder_preferences")
+}
+
+/// One organisation-level alert: the queue entry the job created, and what happened when it ran (AC-BRC-02,
+/// AC-REMD-01). Unlike `email_deliveries` (global, keyed on the address) this row belongs to a tenant, so a
+/// member can see the delivery history of their own reminders and an auditor can see that an overdue request
+/// raised exactly one alert per threshold. `dedupeKey` is what makes a retried job land on the same row.
+model AlertDelivery {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  organisationId   String           @map("organisation_id") @db.Uuid
+  kind             AlertKind
+  dedupeKey        String           @map("dedupe_key")
+  status           AlertStatus      @default(QUEUED)
+  /// Resolved at send time (DPO contact, else the owners), so the address is the current one and the
+  /// recipient does not need an account.
+  recipientAddress String?          @map("recipient_address")
+  recipientLabel   String?          @map("recipient_label")
+  /// The deadline the alert was about, so a stale re-run can be recognised and skipped.
+  dueOn            DateTime?        @map("due_on") @db.Date
+  skipReason       AlertSkipReason?
+  /// Sanitised: the provider's message never contains the record or the address.
+  lastError        String?          @map("last_error")
+  attempts         Int              @default(0)
+  sentAt           DateTime?        @map("sent_at") @db.Timestamptz
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  organisation  Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  dsarRequest   DsarRequest? @relation(fields: [organisationId, dsarRequestId], references: [organisationId, id], onDelete: Restrict)
+  breach        Breach?      @relation(fields: [organisationId, breachId], references: [organisationId, id], onDelete: Restrict)
+  reminder      Reminder?    @relation(fields: [organisationId, reminderId], references: [organisationId, id], onDelete: Restrict)
+  dsarRequestId String?      @map("dsar_request_id") @db.Uuid
+  breachId      String?      @map("breach_id") @db.Uuid
+  reminderId    String?      @map("reminder_id") @db.Uuid
+
+  @@unique([organisationId, id])
+  @@unique([organisationId, dedupeKey])
+  @@index([organisationId, kind, createdAt(sort: Desc)])
+  @@index([organisationId, dsarRequestId])
+  @@index([organisationId, breachId])
+  @@index([organisationId, reminderId])
+  @@map("alert_deliveries")
 }

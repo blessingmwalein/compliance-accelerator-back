@@ -57,6 +57,8 @@ const REFERENCE_TABLES = new Set([
   'framework_versions',
   'requirements',
   'mapping_pack_entries',
+  'assessment_templates',
+  'assessment_template_items',
 ]);
 
 /** Empties every table (as the owner) so each run starts clean. Tests still create their own organisations. */

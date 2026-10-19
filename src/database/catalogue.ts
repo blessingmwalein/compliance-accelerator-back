@@ -29,6 +29,29 @@ export const TENANT_MODELS = [
   'AssessmentItemEvidence',
   'RemediationTaskEvidence',
   'Report',
+  'ClassificationLevel',
+  'RopaActivity',
+  'RopaActivityEvidence',
+  'LawfulBasisRecord',
+  'LawfulBasisEvidence',
+  'RetentionRule',
+  'LegalHold',
+  'RetentionDisposal',
+  'Risk',
+  'RiskAcceptance',
+  'DeadlinePolicy',
+  'DsarRequest',
+  'DsarExtension',
+  'DsarCommunication',
+  'DsarRequestEvidence',
+  'Breach',
+  'BreachChronologyEntry',
+  'BreachNotificationDecision',
+  'BreachEvidence',
+  'EvidenceVersion',
+  'Reminder',
+  'ReminderPreference',
+  'AlertDelivery',
 ] as const;
 export type TenantModelName = (typeof TENANT_MODELS)[number];
 
@@ -57,6 +80,10 @@ export const GLOBAL_TABLES = {
     'The tree of a framework version (identifiers, titles): global reference data of a frozen version, no tenant data.',
   mapping_pack_entries:
     'Default cross-framework mappings from a cited crosswalk or named reviewer: global reference data; an organisation gets its own copy in organisation_mappings.',
+  assessment_templates:
+    'Quick-start assessment templates are platform-published reference data (versioned, verified wording, no ratings and no legal text); an organisation applies one into its own rows.',
+  assessment_template_items:
+    'The subjects of a template version: global reference data frozen with its template, no tenant data.',
   email_deliveries:
     'Keyed on the recipient ADDRESS (invitees and DPO contacts need not be users); no tenant data.',
 } as const satisfies Record<string, string>;

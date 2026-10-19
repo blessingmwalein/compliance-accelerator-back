@@ -3,13 +3,31 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { AuditModule } from './audit/audit.module.js';
+import { AssessmentTemplatesModule } from './assessment-templates/assessment-templates.module.js';
+import { AssessmentsModule } from './assessments/assessments.module.js';
+import { BreachesModule } from './breaches/breaches.module.js';
 import { BusinessUnitsModule } from './business-units/business-units.module.js';
+import { ClassificationModule } from './classification/classification.module.js';
 import { ComplianceMappingsModule } from './compliance-mappings/compliance-mappings.module.js';
-import { GovernanceAreasModule } from './governance-areas/governance-areas.module.js';
+import { DashboardModule } from './dashboard/dashboard.module.js';
+import { DeadlinePolicyModule } from './deadline-policy/deadline-policy.module.js';
+import { DsarModule } from './dsar/dsar.module.js';
+import { EvidenceModule } from './evidence/evidence.module.js';
 import { FrameworksModule } from './frameworks/frameworks.module.js';
+import { GovernanceAreasModule } from './governance-areas/governance-areas.module.js';
+import { LawfulBasisModule } from './lawful-basis/lawful-basis.module.js';
 import { PlansModule } from './plans/plans.module.js';
+import { PrioritiesModule } from './priorities/priorities.module.js';
+import { RemediationModule } from './remediation/remediation.module.js';
+import { RemindersModule } from './reminders/reminders.module.js';
+import { ReportsModule } from './reports/reports.module.js';
+import { RetentionModule } from './retention/retention.module.js';
+import { RisksModule } from './risks/risks.module.js';
+import { RopaModule } from './ropa/ropa.module.js';
+import { ScoringModule } from './scoring/scoring.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { StorageModule } from './storage/storage.module.js';
+import { AlertsModule } from './alerts/alerts.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { ClockModule } from './common/clock.module.js';
 import { ProblemDetailsFilter } from './common/filters/problem-details.filter.js';
@@ -76,11 +94,29 @@ import { TenancyModule } from './tenancy/tenancy.module.js';
     OrganisationsModule,
     SettingsModule,
     BusinessUnitsModule,
+    DashboardModule,
+    DeadlinePolicyModule,
+    AlertsModule,
+    DsarModule,
+    BreachesModule,
+    RemindersModule,
+    RisksModule,
+    ClassificationModule,
+    RopaModule,
+    LawfulBasisModule,
+    RetentionModule,
     FrameworksModule,
     GovernanceAreasModule,
     ComplianceMappingsModule,
+    EvidenceModule,
+    AssessmentTemplatesModule,
+    AssessmentsModule,
+    PrioritiesModule,
+    RemediationModule,
+    ReportsModule,
     PlansModule,
     PlatformModule,
+    ScoringModule,
     HealthModule,
     MetaModule,
   ],

@@ -75,7 +75,8 @@ export interface Summary {
   notRated: number;
 }
 
-const mean = (values: readonly number[]): number | null =>
+/** The mean of a set of ratings, to two decimals: null for an empty set, never zero. */
+export const mean = (values: readonly number[]): number | null =>
   values.length === 0
     ? null
     : Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100;
@@ -86,7 +87,9 @@ const mean = (values: readonly number[]): number | null =>
  */
 export function summarise(items: readonly SummaryInput[]): Summary {
   const applicable = items.length;
-  const maturities = items.flatMap((item) => (item.currentMaturity === null ? [] : [item.currentMaturity]));
+  const maturities = items.flatMap((item) =>
+    item.currentMaturity === null ? [] : [item.currentMaturity],
+  );
   const gaps = items.flatMap((item) => (item.gap === null ? [] : [item.gap]));
   const exposures = items.flatMap((item) => (item.exposure === null ? [] : [item.exposure]));
   const byRiskLevel: Record<RiskLevel, number> = { LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0 };

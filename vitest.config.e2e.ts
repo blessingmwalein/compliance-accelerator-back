@@ -10,5 +10,9 @@ export default defineConfig({
     root: './',
     include: ['test/**/*.e2e-spec.ts'],
     env: testEnv,
+    // Every file boots its own Nest application and two of them rebuild the ConfigModule with a
+    // different environment; with five applications compiling at once that takes far longer than the
+    // default 10 s on a busy machine. Same reason as the capped `maxWorkers` in the frontend config.
+    hookTimeout: 180_000,
   },
 });

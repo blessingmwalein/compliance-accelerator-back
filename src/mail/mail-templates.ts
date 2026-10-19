@@ -10,6 +10,21 @@ export type MailRequest =
       organisationName: string;
       roleLabel: string;
       expiresInDays: number;
+    }
+  | {
+      template: 'deadline-alert';
+      to: string;
+      link: string;
+      /**
+       * The threshold in words, chosen from the alert's kind by the handler (`A data subject request is
+       * past its deadline`). It is never the record's own title, name or description: the body of a
+       * deadline alert is a link and nothing else (AC-BRC-02).
+       */
+      summary: string;
+      /** The organisation is named so a contact who covers more than one knows which one is asking. */
+      organisationName: string;
+      /** The role the alert was addressed to, e.g. `Data protection contact`. Never a person's name. */
+      recipientLabel: string;
     };
 
 export type MailTemplateName = MailRequest['template'];
@@ -91,8 +106,9 @@ function subjectText(value: string): string {
 /**
  * Renders a message. Bodies are LINK-ONLY: they say something needs attention and link into the app.
  * They never contain personal data beyond the recipient's own address, and no organisation data,
- * with one deliberate exception: an invitation names the organisation and the role, because the
- * recipient must be able to tell who is inviting them before following a link.
+ * with one deliberate exception: an invitation and a deadline alert name the organisation, because the
+ * recipient must be able to tell whose workspace is speaking before following a link. A deadline alert
+ * additionally names the ROLE it was addressed to — never a person.
  */
 export function renderMail(request: MailRequest): RenderedMail {
   switch (request.template) {
@@ -148,6 +164,18 @@ export function renderMail(request: MailRequest): RenderedMail {
           `Sign in (or create an account with this same email address) and accept the invitation. The link works once and expires in ${request.expiresInDays} days. If you were not expecting this, ignore the message: nothing changes until the invitation is accepted.`,
         ],
         { label: 'View the invitation', url: safeUrl(request.link) },
+      );
+    }
+    case 'deadline-alert': {
+      const organisation = subjectText(request.organisationName);
+      return build(
+        `${organisation}: ${subjectText(request.summary)}`,
+        subjectText(request.summary),
+        [
+          `${organisation} has something for the ${subjectText(request.recipientLabel)} to look at in ${PRODUCT}.`,
+          'Nothing about the record is written here: what it concerns, who owns it and what has already been done are behind the link, which opens inside the application and shows only what this address is allowed to see. If it has already been handled, no action is needed.',
+        ],
+        { label: 'Open the record', url: safeUrl(request.link) },
       );
     }
   }

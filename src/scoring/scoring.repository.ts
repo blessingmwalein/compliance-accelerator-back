@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Tx } from '../database/db-client.js';
 import { TenantRepository } from '../database/tenant-repository.js';
+import { Prisma } from '../generated/prisma/client.js';
 import type { InputJsonValue } from '../generated/prisma/internal/prismaNamespace.js';
 import { RequestContext } from '../tenancy/request-context.js';
 
@@ -59,15 +60,12 @@ export class ScoringPolicyRepository extends TenantRepository {
   }
 }
 
-/** Prisma needs `Prisma.JsonNull` (not `null`) to store a JSON column as SQL NULL. */
+/** Prisma needs `Prisma.DbNull` (not `null`) to store a JSON column as SQL NULL. */
 function nullable(changes: PolicyChanges) {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(changes)) {
     if (value === undefined) continue;
-    out[key] = value === null ? DbNull : value;
+    out[key] = value === null ? Prisma.DbNull : value;
   }
   return out;
 }
-
-import { Prisma } from '../generated/prisma/client.js';
-const DbNull = Prisma.DbNull;

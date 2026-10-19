@@ -100,7 +100,11 @@ export const LIKELIHOOD_LABELS: Readonly<Record<number, string>> = {
 };
 
 /** The maturity methodology: current and target on the 1 to 5 scale, gap in LEVELS (never a percentage). */
-export const MATURITY_V1 = { id: 'maturity_v1', version: 1, label: 'Maturity gap (levels)' } as const;
+export const MATURITY_V1 = {
+  id: 'maturity_v1',
+  version: 1,
+  label: 'Maturity gap (levels)',
+} as const;
 
 /** The attainable products of three 1 to 5 factors (nothing exists between 81 and 99: shown to band editors). */
 export function attainableExposureValues(): number[] {

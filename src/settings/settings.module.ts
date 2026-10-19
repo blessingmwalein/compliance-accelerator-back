@@ -17,5 +17,7 @@ import { SettingsService } from './settings.service.js';
     RegulatorContactsRepository,
     RegulatorContactsService,
   ],
+  // Reports need the organisation's name and timezone through this service, never through the repository.
+  exports: [SettingsService],
 })
 export class SettingsModule {}

@@ -1,0 +1,392 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import {
+  IsBoolean,
+  IsDateString,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
+import { PageQueryDto } from '../common/pagination.js';
+import { OptionalOrNull, TrimText, TrimToNull } from '../common/validators/nullable.js';
+import {
+  TASK_PRIORITIES,
+  TASK_STATUSES,
+  type TaskPriority,
+  type TaskStatus,
+} from '../domain/remediation/policy.js';
+import { RISK_LEVELS, type RiskLevel } from '../domain/scoring/methodologies.js';
+
+/** A calendar date (`YYYY-MM-DD`): stored in a DATE column, judged in the organisation's time zone. */
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_ONLY_MESSAGE = 'dueDate must be a calendar date in the form YYYY-MM-DD';
+/** Reason and comment length: the database CHECK forbids more (remediation_task_events_check). */
+const EVENT_BODY_MAX = 2000;
+
+const toBoolean = ({ value }: { value: unknown }) =>
+  // class-transformer's implicit conversion turns "false" into true, so the raw value is read here.
+  value === 'true' || value === true ? true : value === 'false' || value === false ? false : value;
+
+/** How a task's due date can be judged. Absence of a due date is its own state, never "on time". */
+const DUE_AVAILABILITIES = ['ok', 'no_due_date'] as const;
+type DueAvailabilityValue = (typeof DUE_AVAILABILITIES)[number];
+
+/**
+ * The due-date state of a task, decided on the server with the organisation's calendar day.
+ * A task without a due date has `availability: "no_due_date"` and carries **no** overdue verdict at
+ * all: `isOverdue` and `dueDate` are absent (not `false`, not `null`), because missing data is never a
+ * result (skill grc-domain, section 3).
+ */
+export class TaskDueStateDto {
+  /** `ok`: there is a due date and the verdict below is real. `no_due_date`: there is nothing to judge. */
+  @ApiProperty({ enum: DUE_AVAILABILITIES, enumName: 'TaskDueAvailability' })
+  availability!: DueAvailabilityValue;
+
+  /** True when the due date is strictly before `asOf`. Present only when `availability` is `ok`. */
+  @ApiPropertyOptional({ type: Boolean })
+  isOverdue?: boolean;
+
+  /** The due calendar day (`YYYY-MM-DD`). Present only when `availability` is `ok`. */
+  @ApiPropertyOptional({ type: String, format: 'date' })
+  dueDate?: string;
+
+  /** Today in the organisation's time zone: the day the verdict was decided against. */
+  asOf!: string;
+}
+
+/** One move this caller may make from the task's current status (from the domain transition table). */
+export class TaskTransitionDto {
+  toStatus!: TaskStatus;
+  /** `work`: the assignee or an editor may do it. `approve`: only an approver may. */
+  @ApiProperty({ enum: ['work', 'approve'], enumName: 'TaskTransitionAuthority' })
+  by!: 'work' | 'approve';
+
+  /** The server refuses the move without a `reason` (a reopen). */
+  needsReason!: boolean;
+}
+
+/** The append-only timeline entry of a task: a comment, a status change or a reassignment. */
+export class RemediationTaskEventDto {
+  id!: string;
+  @ApiProperty({ enum: ['COMMENT', 'STATUS_CHANGE', 'ASSIGNMENT'], enumName: 'TaskEventKind' })
+  kind!: 'COMMENT' | 'STATUS_CHANGE' | 'ASSIGNMENT';
+  /** Set for a status change; null for a comment or a reassignment. */
+  @ApiPropertyOptional({ enum: TASK_STATUSES, enumName: 'TaskStatus' })
+  fromStatus!: TaskStatus | null;
+  /** Set for a status change; null for a comment or a reassignment. */
+  @ApiPropertyOptional({ enum: TASK_STATUSES, enumName: 'TaskStatus' })
+  toStatus!: TaskStatus | null;
+  /** The comment text, the reason for a reopen, or the wording of a reassignment. */
+  body!: string | null;
+  /** Who wrote it (a user id, never a free-text name). */
+  actorUserId!: string;
+  /** The actor's display name, so a timeline needs no extra calls. */
+  actorName!: string;
+  /** ISO 8601 UTC instant. */
+  createdAt!: string;
+}
+
+/** A remediation task as a list row: the task plus the names of what it is about. */
+export class RemediationTaskDto {
+  id!: string;
+
+  title!: string;
+  description!: string | null;
+
+  @ApiProperty({ enum: TASK_PRIORITIES, enumName: 'TaskPriority' })
+  priority!: TaskPriority;
+
+  @ApiProperty({ enum: TASK_STATUSES, enumName: 'TaskStatus' })
+  status!: TaskStatus;
+
+  /** The membership id of the assignee; null = nobody is assigned (never the text "Unassigned"). */
+  assigneeMembershipId!: string | null;
+  /** The assignee's display name; null when unassigned. */
+  assigneeName!: string | null;
+
+  /** The due calendar day (`YYYY-MM-DD`) as stored, or null when the task never got one. */
+  @ApiProperty({ type: String, format: 'date', nullable: true })
+  dueDate!: string | null;
+  /** Whether the task is overdue, decided on the server in the organisation's time zone. */
+  dueState!: TaskDueStateDto;
+
+  /** True when the task came from Generate Remediation Tasks rather than from a person. */
+  autoGenerated!: boolean;
+
+  // ---- what the task is about (the subject; it never changes after creation)
+  /** The assessment item this task fixes; null for a task that is not tied to a finding. */
+  assessmentItemId!: string | null;
+  governanceAreaId!: string | null;
+  /** Null when the area was deleted from the list or the task is not filed under one. */
+  governanceAreaName!: string | null;
+  requirementId!: string | null;
+  /** The requirement's own identifier, for example `Art. 33`. */
+  requirementRef!: string | null;
+  requirementTitle!: string | null;
+  businessUnitId!: string | null;
+  /** Null when the task concerns the whole organisation. */
+  businessUnitName!: string | null;
+  frameworkId!: string | null;
+  /** For example `GDPR`. */
+  frameworkCode!: string | null;
+
+  /** ISO 8601 UTC instant. */
+  createdAt!: string;
+  /** ISO 8601 UTC instant. */
+  updatedAt!: string;
+  /** Send it back with every change: a stale value is rejected with 409 `VERSION_CONFLICT`. */
+  version!: number;
+}
+
+/** A task with everything the detail screen needs. */
+export class RemediationTaskDetailDto extends RemediationTaskDto {
+  /** The maturity the task was raised for. Null when the item was not rated: never a default. */
+  snapshotCurrentMaturity!: number | null;
+  snapshotTargetMaturity!: number | null;
+  /** The gap in maturity LEVELS (not a percentage) at the time the task was raised. */
+  snapshotGap!: number | null;
+  /** The risk level at the time the task was raised; null when the item had no exposure score. */
+  @ApiProperty({ enum: RISK_LEVELS, enumName: 'RiskLevel', nullable: true })
+  snapshotRiskLevel!: RiskLevel | null;
+
+  /** Who created the task (a user id). */
+  createdByUserId!: string;
+  /** ISO 8601 UTC instants of the lifecycle; null until that step happened. */
+  completedAt!: string | null;
+  completedByUserId!: string | null;
+  verifiedAt!: string | null;
+  verifiedByUserId!: string | null;
+
+  /** The evidence linked to this task (ids only; the files themselves are the evidence module's). */
+  evidenceIds!: string[];
+  /** The timeline, oldest first. Append-only: an entry is never edited or removed. */
+  events!: RemediationTaskEventDto[];
+  /**
+   * The status changes THIS caller may perform now, derived from the domain transition table and the
+   * caller's role and assignment, so the UI never offers a forbidden action.
+   */
+  allowedTransitions!: TaskTransitionDto[];
+}
+
+export class RemediationTaskPageDto {
+  items!: RemediationTaskDto[];
+  /** Pass as `after` to get the next page; null on the last page. */
+  nextCursor!: string | null;
+}
+
+export class ListRemediationTasksQueryDto extends PageQueryDto {
+  @ApiPropertyOptional({ enum: TASK_STATUSES, enumName: 'TaskStatus' })
+  @IsOptional()
+  @IsIn(TASK_STATUSES)
+  status?: TaskStatus;
+
+  @ApiPropertyOptional({ enum: TASK_PRIORITIES, enumName: 'TaskPriority' })
+  @IsOptional()
+  @IsIn(TASK_PRIORITIES)
+  priority?: TaskPriority;
+
+  /** Only tasks assigned to this membership of the organisation. */
+  @ApiPropertyOptional({ type: String, format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  assigneeMembershipId?: string;
+
+  @ApiPropertyOptional({ type: String, format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  businessUnitId?: string;
+
+  @ApiPropertyOptional({ type: String, format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  frameworkId?: string;
+
+  /**
+   * `true`: the due date is before today in the organisation's time zone. `false`: the due date is
+   * today or later. A task with **no** due date matches neither value and is left out of both.
+   */
+  @ApiPropertyOptional({ type: Boolean })
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean()
+  overdue?: boolean;
+
+  /** Only tasks whose title, description or subject (area, unit, requirement, framework) contains this text. */
+  @ApiPropertyOptional({ type: String, maxLength: 80 })
+  @IsOptional()
+  @TrimText()
+  @IsString()
+  @MaxLength(80)
+  q?: string;
+}
+
+/**
+ * A task raised by hand. The subject ids are validated against the organisation; a foreign or unknown
+ * one is a field error. `assessmentItemId` is set here or not at all: a task's subject never changes.
+ */
+export class CreateRemediationTaskDto {
+  @TrimText()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  title!: string;
+
+  @TrimToNull()
+  @OptionalOrNull()
+  @IsString()
+  @MaxLength(4000)
+  description?: string | null;
+
+  @ApiProperty({ enum: TASK_PRIORITIES, enumName: 'TaskPriority' })
+  @IsIn(TASK_PRIORITIES)
+  priority!: TaskPriority;
+
+  /** An ACTIVE member of this organisation (a membership id, never free text). */
+  @OptionalOrNull()
+  @IsUUID()
+  assigneeMembershipId?: string | null;
+
+  /** A calendar date (`YYYY-MM-DD`). Omit or send null for "no deadline set" — never a guessed date. */
+  @TrimToNull()
+  @OptionalOrNull()
+  @Matches(DATE_ONLY, { message: DATE_ONLY_MESSAGE })
+  @IsDateString()
+  dueDate?: string | null;
+
+  /** The assessment item whose gap this task fixes. */
+  @OptionalOrNull()
+  @IsUUID()
+  assessmentItemId?: string | null;
+
+  @OptionalOrNull()
+  @IsUUID()
+  governanceAreaId?: string | null;
+
+  /** A requirement of a loaded framework version. */
+  @OptionalOrNull()
+  @IsUUID()
+  requirementId?: string | null;
+
+  @OptionalOrNull()
+  @IsUUID()
+  businessUnitId?: string | null;
+
+  @OptionalOrNull()
+  @IsUUID()
+  frameworkId?: string | null;
+}
+
+/**
+ * Omit a field to keep it; `null` or a blank string clears `description`, `dueDate` and
+ * `assigneeMembershipId`. A `null` on `title` or `priority` is refused with 400: a task always has both.
+ *
+ * There is deliberately **no** `assessmentItemId` (nor any other subject id) here: the subject a task is
+ * about is fixed when it is created, so re-pointing a task at another finding is not part of editing it.
+ */
+export class UpdateRemediationTaskDto {
+  /** Omit to keep it. `null` or blank is refused: a title is required and cannot be cleared. */
+  @ApiPropertyOptional({ type: String, maxLength: 200 })
+  @TrimText()
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  title?: string | null;
+
+  @TrimToNull()
+  @OptionalOrNull()
+  @IsString()
+  @MaxLength(4000)
+  description?: string | null;
+
+  /** Omit to keep it. `null` is refused: a task is always prioritised. */
+  @ApiPropertyOptional({ enum: TASK_PRIORITIES, enumName: 'TaskPriority' })
+  @IsOptional()
+  @IsIn(TASK_PRIORITIES)
+  priority?: TaskPriority | null;
+
+  /** An ACTIVE member of this organisation, or null to unassign. */
+  @OptionalOrNull()
+  @IsUUID()
+  assigneeMembershipId?: string | null;
+
+  @TrimToNull()
+  @OptionalOrNull()
+  @Matches(DATE_ONLY, { message: DATE_ONLY_MESSAGE })
+  @IsDateString()
+  dueDate?: string | null;
+
+  /** The `version` of the task as last read. */
+  @IsInt()
+  @Min(1)
+  version!: number;
+}
+
+/**
+ * A status change, decided ONLY by the domain transition table (`src/domain/remediation/policy.ts`).
+ * A move that is not listed there, or a reopen without a reason, is `409 INVALID_TRANSITION`.
+ */
+export class ChangeRemediationTaskStatusDto {
+  @ApiProperty({ enum: TASK_STATUSES, enumName: 'TaskStatus' })
+  @IsIn(TASK_STATUSES)
+  toStatus!: TaskStatus;
+
+  /** Required for a reopen (`COMPLETED → IN_PROGRESS`, `VERIFIED → IN_PROGRESS`, `CANCELLED → OPEN`). */
+  @TrimToNull()
+  @OptionalOrNull()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(EVENT_BODY_MAX)
+  reason?: string | null;
+
+  /** The `version` as last read, when the caller wants optimistic locking on the action too. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  version?: number;
+}
+
+/** A comment on the timeline. The body is a person's words: never blank, never a default. */
+export class CommentRemediationTaskDto {
+  @TrimText()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(EVENT_BODY_MAX)
+  body!: string;
+}
+
+/** Generate Remediation Tasks: the gaps of ONE assessment become tasks. */
+export class GenerateRemediationTasksDto {
+  /** An assessment of this organisation; every item with a gap is considered. */
+  @IsUUID()
+  assessmentId!: string;
+}
+
+/** Why one gap did not become a task. */
+export class GeneratedTaskSkipDto {
+  assessmentItemId!: string;
+  /** `NO_RISK_LEVEL`: the item has a gap but no exposure band yet, so no priority can be derived.
+   *  `ACTIVE_TASK_EXISTS`: the subject already has a task in an active status. */
+  @ApiProperty({
+    enum: ['NO_RISK_LEVEL', 'ACTIVE_TASK_EXISTS'],
+    enumName: 'GeneratedTaskSkipReason',
+  })
+  reason!: 'NO_RISK_LEVEL' | 'ACTIVE_TASK_EXISTS';
+  /** Plain language for the screen that ran the generation. */
+  detail!: string;
+}
+
+export class GeneratedRemediationTasksDto {
+  /** Tasks this run created. `created + skipped` equals the number of gaps that were looked at. */
+  created!: number;
+  /** Gaps left alone: no priority could be derived, or the subject already has an active task. */
+  skipped!: number;
+  items!: RemediationTaskDto[];
+  skippedItems!: GeneratedTaskSkipDto[];
+}

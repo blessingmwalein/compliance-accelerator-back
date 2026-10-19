@@ -23,6 +23,11 @@ export const ErrorCode = {
   RateLimited: 'RATE_LIMITED',
   InternalError: 'INTERNAL_ERROR',
   ServiceUnavailable: 'SERVICE_UNAVAILABLE',
+  /**
+   * A feature that is planned but not built in this release. Distinct from `SERVICE_UNAVAILABLE`: the
+   * server is healthy and retrying changes nothing, so a client must not queue the call again.
+   */
+  FeatureUnavailable: 'FEATURE_UNAVAILABLE',
   DatabaseNotConfigured: 'DATABASE_NOT_CONFIGURED',
   DatabaseUnavailable: 'DATABASE_UNAVAILABLE',
   InvalidCredentials: 'INVALID_CREDENTIALS',
@@ -64,6 +69,37 @@ export const ErrorCode = {
   InvalidTransition: 'INVALID_TRANSITION',
   /** Only the assignee or someone who may edit remediation work can change this task. */
   NotAssignee: 'NOT_ASSIGNEE',
+  /** A multipart upload arrived with no file part, or with an empty one. */
+  FileRequired: 'FILE_REQUIRED',
+  /** The registers (Phase 6). */
+  /** A live legal hold covers this record (or its retention rule): it cannot be disposed of or removed. */
+  LegalHoldActive: 'LEGAL_HOLD_ACTIVE',
+  /** A rule-wide disposal cannot be logged while any hold on that rule is live. */
+  DisposalBlockedByHold: 'DISPOSAL_BLOCKED_BY_HOLD',
+  /** The risk already has an acceptance in force: withdraw it first, then decide again. */
+  RiskAcceptanceInForce: 'RISK_ACCEPTANCE_IN_FORCE',
+  /** A closed or transferred risk cannot be accepted: acceptance is about risk still carried today. */
+  RiskNotAcceptable: 'RISK_NOT_ACCEPTABLE',
+  /** Another level (active or archived) already holds that rank: ranks are never reused. */
+  ClassificationRankTaken: 'CLASSIFICATION_RANK_TAKEN',
+  /** Another ACTIVE level already has that name. */
+  ClassificationLevelNameTaken: 'CLASSIFICATION_LEVEL_NAME_TAKEN',
+  /** Archiving would orphan records that still point at this one (activities, rules, evidence). */
+  RecordInUse: 'RECORD_IN_USE',
+  /**
+   * The incident records (Phase 7). A request, a breach or a reminder that has been completed, refused,
+   * withdrawn or closed: its chronology stays readable and its evidence stays linked, but no further
+   * action is taken on it.
+   */
+  RecordAlreadyClosed: 'RECORD_ALREADY_CLOSED',
+  /** The policy allows no more extensions for this request, or none at all (no window, no limit, no deadline). */
+  ExtensionNotAllowed: 'EXTENSION_NOT_ALLOWED',
+  /** A request cannot be completed while the requester's identity has not been verified (AC-DSAR-01). */
+  IdentityNotVerified: 'IDENTITY_NOT_VERIFIED',
+  /** A breach cannot be closed before its notification duty has been decided and recorded (AC-BRC-01). */
+  BreachDecisionRequired: 'BREACH_DECISION_REQUIRED',
+  /** `?version=n` named a version this item's ledger never had. */
+  EvidenceVersionNotFound: 'EVIDENCE_VERSION_NOT_FOUND',
 } as const;
 
 export type ErrorCodeValue = (typeof ErrorCode)[keyof typeof ErrorCode];
