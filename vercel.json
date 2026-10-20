@@ -5,7 +5,6 @@
   "installCommand": "npm ci",
   "functions": {
     "api/index.mjs": {
-      "runtime": "nodejs@24.x",
       "memory": 1024,
       "maxDuration": 300,
       "includeFiles": "../node_modules/@prisma/client/runtime/*"
