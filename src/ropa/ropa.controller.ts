@@ -23,6 +23,7 @@ import { ApiProblemResponse } from '../common/errors/api-problem-response.decora
 import {
   CreateRopaActivityDto,
   LinkRopaEvidenceDto,
+  LinkRopaLawfulBasisDto,
   ListRopaActivitiesQueryDto,
   RopaActivityDetailDto,
   RopaActivityDto,
@@ -34,8 +35,9 @@ import {
 import { RopaService } from './ropa.service.js';
 
 /**
- * The Record of Processing Activities. Activities are archived, never deleted, and a link to an evidence
- * file is a relation the organisation can undo without touching the file itself.
+ * The Record of Processing Activities. Activities are archived, never deleted, and a link — to an evidence file
+ * or to the lawful basis that justifies the processing — is a relation the organisation can undo without
+ * touching the file or the record itself.
  */
 @ApiTags('ropa')
 @ApiParam({ name: 'organisationId', type: String, format: 'uuid' })
@@ -167,5 +169,40 @@ export class RopaController {
     @Param('evidenceId', ParseUUIDPipe) evidenceId: string,
   ): Promise<RopaActivityDetailDto> {
     return this.ropa.unlinkEvidence(activityId, evidenceId);
+  }
+
+  /**
+   * States a lawful basis for this activity: it creates a DRAFT record in the lawful basis register that
+   * points here, so the two registers trace each other without either one owning the other's review.
+   */
+  @Post(':activityId/lawful-basis')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission('data.edit')
+  @ApiOperation({
+    operationId: 'linkRopaLawfulBasis',
+    summary: 'Justify an activity with a lawful basis',
+  })
+  @ApiOkResponse({ type: RopaActivityDetailDto })
+  linkLawfulBasis(
+    @Param('activityId', ParseUUIDPipe) activityId: string,
+    @Body() dto: LinkRopaLawfulBasisDto,
+  ): Promise<RopaActivityDetailDto> {
+    return this.ropa.linkLawfulBasis(activityId, dto);
+  }
+
+  /** Detaches the basis record (it stays in the lawful basis register). Detaching twice changes nothing. */
+  @Delete(':activityId/lawful-basis/:recordId')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission('data.edit')
+  @ApiOperation({
+    operationId: 'unlinkRopaLawfulBasis',
+    summary: 'Remove a lawful basis from an activity (the record itself stays)',
+  })
+  @ApiOkResponse({ type: RopaActivityDetailDto })
+  unlinkLawfulBasis(
+    @Param('activityId', ParseUUIDPipe) activityId: string,
+    @Param('recordId', ParseUUIDPipe) recordId: string,
+  ): Promise<RopaActivityDetailDto> {
+    return this.ropa.unlinkLawfulBasis(activityId, recordId);
   }
 }

@@ -3,6 +3,7 @@ import type { ReportGenerationMode, ReportParamType } from '../reports.dto.js';
 import { consolidatedDpo } from './consolidated-dpo.js';
 import { executiveDashboard } from './executive-dashboard.js';
 import { governanceAssessment } from './governance-assessment.js';
+import { ropaRegister } from './ropa-register.js';
 
 /**
  * The report catalogue (Phase 9a): one list of the definitions this build can render, so the history screen,
@@ -49,6 +50,7 @@ export const REPORT_PERMISSIONS = {
 export const REPORT_TEMPLATES: readonly ReportTemplateDefinition[] = [
   governanceAssessment,
   executiveDashboard,
+  ropaRegister,
   consolidatedDpo,
 ];
 

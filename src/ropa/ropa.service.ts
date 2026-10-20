@@ -7,6 +7,7 @@ import { pageSizeOf, toPage } from '../common/pagination.js';
 import type { Tx } from '../database/db-client.js';
 import { UnitOfWork } from '../database/unit-of-work.js';
 import { todayIn } from '../domain/remediation/policy.js';
+import type { LawfulBasisKind } from '../domain/registers/records.js';
 import {
   REVIEW_LEAD_DAYS,
   reviewViewOf,
@@ -17,6 +18,7 @@ import {
 import { RequestContext } from '../tenancy/request-context.js';
 import type {
   CreateRopaActivityDto,
+  LinkRopaLawfulBasisDto,
   ListRopaActivitiesQueryDto,
   RopaActivityDetailDto,
   RopaActivityDto,
@@ -25,7 +27,12 @@ import type {
   RopaMonitorDto,
   UpdateRopaActivityDto,
 } from './ropa.dto.js';
-import { RopaRepository, type ActivityFields, type ActivityRecord } from './ropa.repository.js';
+import {
+  RopaRepository,
+  type ActivityFields,
+  type ActivityRecord,
+  type RopaBasisLink,
+} from './ropa.repository.js';
 
 const notFound = (what: string) =>
   new AppException(ErrorCode.NotFound, HttpStatus.NOT_FOUND, `${what} not found.`);
@@ -83,6 +90,7 @@ const toDto = (record: ActivityRecord, today: string) => {
     classificationLevelRank: record.classificationLevelRank,
     retentionRuleId: record.retentionRuleId,
     retentionRuleName: record.retentionRuleName,
+    lawfulBasisRecords: record.lawfulBasis,
     purpose: record.purpose,
     dataSubjects: record.dataSubjects,
     personalDataCategories: record.personalDataCategories,
@@ -187,7 +195,12 @@ export class RopaService {
           entityLabel: created.name,
           changes: { status: created.status },
         });
-        return toDto(created, await this.today(tx));
+        // The basis stated while the activity was being recorded is its own DRAFT record, pointing here.
+        if (dto.lawfulBasis) {
+          await this.recordBasis(tx, created, dto.lawfulBasis, dto.purpose ?? null);
+        }
+        const fresh = dto.lawfulBasis ? await this.mustFind(tx, created.id) : created;
+        return toDto(fresh, await this.today(tx));
       });
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -364,6 +377,37 @@ export class RopaService {
     });
   }
 
+  /**
+   * States a lawful basis for this activity by creating a DRAFT basis record that points at it. The basis
+   * register owns its own review; the link is only which side of the register the answer sits on.
+   */
+  async linkLawfulBasis(id: string, dto: LinkRopaLawfulBasisDto): Promise<RopaActivityDetailDto> {
+    return this.uow.run(async (tx) => {
+      const current = await this.mustFind(tx, id);
+      await this.recordBasis(tx, current, dto.basis, dto.purpose ?? null);
+      return this.detailIn(tx, await this.mustFind(tx, id)); // the new link is in the row it returns
+    });
+  }
+
+  /** Detaches the basis record; the record itself stays in the lawful basis register. Idempotent. */
+  async unlinkLawfulBasis(id: string, recordId: string): Promise<RopaActivityDetailDto> {
+    return this.uow.run(async (tx) => {
+      const current = await this.mustFind(tx, id);
+      const removed = await this.activities.unlinkBasisRecord(tx, id, recordId);
+      if (removed) {
+        await this.audit.record(tx, {
+          action: 'ropa_activity.lawful_basis_unlinked',
+          entityType: 'ropa_activity',
+          entityId: id,
+          entityLabel: current.name,
+          changes: { lawfulBasisRecordId: recordId },
+        });
+        return this.detailIn(tx, await this.mustFind(tx, id));
+      }
+      return this.detailIn(tx, current);
+    });
+  }
+
   /** How much of the register needs attention, counted on the server in the organisation's own day. */
   monitor(): Promise<RopaMonitorDto> {
     return this.uow.run(async (tx) => {
@@ -378,6 +422,9 @@ export class RopaService {
           dueSoon: 0,
           onTrack: 0,
           notReviewed: 0,
+          linkedToLawfulBasis: 0,
+          linkedToClassification: 0,
+          unlinked: 0,
         };
       }
       const counts = new Map<ReviewState, number>();
@@ -393,6 +440,8 @@ export class RopaService {
       const overdue = counts.get('overdue') ?? 0;
       const dueSoon = counts.get('due_soon') ?? 0;
       const notReviewed = counts.get('not_reviewed') ?? 0;
+      const hasBasis = (row: ActivityRecord) => row.lawfulBasis.length > 0;
+      const hasClass = (row: ActivityRecord) => row.classificationLevelId !== null;
       return {
         // with no approved due date anywhere there is nothing to monitor: the register is not configured yet
         availability: notReviewed === rows.length ? ('not_configured' as const) : ('ok' as const),
@@ -402,6 +451,10 @@ export class RopaService {
         dueSoon,
         onTrack: rows.length - overdue - dueSoon - notReviewed,
         notReviewed,
+        // the traceability the register is judged on: a line with neither link says what the data is and nothing else
+        linkedToLawfulBasis: rows.filter(hasBasis).length,
+        linkedToClassification: rows.filter(hasClass).length,
+        unlinked: rows.filter((row) => !hasBasis(row) && !hasClass(row)).length,
       };
     });
   }
@@ -417,6 +470,32 @@ export class RopaService {
   private async detailIn(tx: Tx, record: ActivityRecord): Promise<RopaActivityDetailDto> {
     const evidenceIds = await this.activities.evidenceIdsFor(tx, record.id);
     return { ...toDto(record, await this.today(tx)), evidenceIds };
+  }
+
+  /**
+   * Creates the basis record that justifies an activity. A lawful basis row needs a purpose, and the caller
+   * does not always restate one: the activity's own purpose, then its name, stand in so the register line is
+   * never an empty row. It starts as DRAFT, because nobody has reviewed what was just typed.
+   */
+  private async recordBasis(
+    tx: Tx,
+    activity: ActivityRecord,
+    basis: LawfulBasisKind,
+    purpose: string | null,
+  ): Promise<RopaBasisLink> {
+    const record = await this.activities.createBasisRecord(tx, {
+      basis,
+      purpose: (purpose ?? activity.purpose ?? activity.name).trim(),
+      processingActivityId: activity.id,
+    });
+    await this.audit.record(tx, {
+      action: 'ropa_activity.lawful_basis_linked',
+      entityType: 'ropa_activity',
+      entityId: activity.id,
+      entityLabel: activity.name,
+      changes: { basis, lawfulBasisRecordId: record.id },
+    });
+    return record;
   }
 
   /** Today in the organisation's own zone: a review date never means anything in the server's zone. */

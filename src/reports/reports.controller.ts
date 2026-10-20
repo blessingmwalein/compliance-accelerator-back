@@ -93,6 +93,23 @@ export class ReportsController {
   }
 
   /**
+   * Renders and stores the Record of Processing Activities (article 30): the standing register as it reads on the
+   * day it is drawn, with the lawful basis and classification of every live activity. There is nothing to send —
+   * the document covers the whole register, from the same service the RoPA screen reads.
+   */
+  @Post('ropa-register')
+  @HttpCode(HttpStatus.CREATED)
+  @RequirePermission(REPORT_PERMISSIONS.export)
+  @ApiOperation({
+    operationId: 'generateRopaRegister',
+    summary: 'Render and store the Record of Processing Activities PDF',
+  })
+  @ApiCreatedResponse({ type: ReportDto })
+  generateRopaRegister(): Promise<ReportDto> {
+    return this.reports.generateRopaRegister();
+  }
+
+  /**
    * Asks for the Consolidated DPO Report: the record is written and the job queued, and the answer is the
    * PENDING row (202, no body of its own beyond the record). The document is drawn by the job runner, which is
    * what makes a period over seven registers possible at all; `GET …/reports/{id}` is the poll, and the bytes

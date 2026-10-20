@@ -60,7 +60,10 @@ export class ReportParamsDto {
  */
 export class ReportDto {
   id!: string;
-  /** One of the catalogue's template ids: `governance_assessment`, `executive_dashboard`, `consolidated_dpo`. */
+  /**
+   * One of the catalogue's template ids: `governance_assessment`, `executive_dashboard`, `ropa_register`,
+   * `consolidated_dpo`.
+   */
   template!: string;
   /** The definition version that rendered it, so a later change of layout can be told apart from new data. */
   templateVersion!: number;

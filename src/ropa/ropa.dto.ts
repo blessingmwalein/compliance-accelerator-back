@@ -15,13 +15,37 @@ import {
 import { PageQueryDto } from '../common/pagination.js';
 import { OptionalOrNull, TrimText, TrimToNull } from '../common/validators/nullable.js';
 import { REVIEW_STATES } from '../domain/registers/review.js';
-import { ROPA_STATUSES, type RopaActivityStatus } from '../domain/registers/records.js';
+import {
+  LAWFUL_BASES,
+  LAWFUL_BASIS_REVIEW_STATUSES,
+  ROPA_STATUSES,
+  type LawfulBasisKind,
+  type LawfulBasisReviewStatus,
+  type RopaActivityStatus,
+} from '../domain/registers/records.js';
 
 /** A calendar date (`YYYY-MM-DD`): stored in a DATE column, judged in the organisation's time zone. */
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const DATE_ONLY_MESSAGE = 'date must be a calendar date in the form YYYY-MM-DD';
 /** Every free-text field of an activity: the database CHECK forbids more than this. */
 const TEXT_MAX = 2000;
+
+/**
+ * One lawful basis that points at a processing activity. The link belongs to the basis record (an activity
+ * can be justified more than once), so this is what the register reads rather than a field it sets.
+ */
+export class RopaLawfulBasisDto {
+  id!: string;
+
+  @ApiProperty({ enum: LAWFUL_BASES, enumName: 'LawfulBasisKind' })
+  basis!: LawfulBasisKind;
+
+  /** What that record says the data is processed for — its own words, not the activity's. */
+  purpose!: string;
+
+  @ApiProperty({ enum: LAWFUL_BASIS_REVIEW_STATUSES, enumName: 'LawfulBasisReviewStatus' })
+  reviewStatus!: LawfulBasisReviewStatus;
+}
 
 /**
  * One line of the Record of Processing Activities: what personal data is processed, by whom, for what,
@@ -43,6 +67,10 @@ export class RopaActivityDto {
   /** The retention rule that says how long this processing's records are kept. */
   retentionRuleId!: string | null;
   retentionRuleName!: string | null;
+
+  /** The basis records that justify this activity, oldest first. An empty list says none has been stated. */
+  @ApiProperty({ type: [RopaLawfulBasisDto] })
+  lawfulBasisRecords!: RopaLawfulBasisDto[];
 
   /** Why the data is processed. */
   purpose!: string | null;
@@ -158,6 +186,13 @@ export class RopaMonitorDto {
   onTrack!: number;
   /** No approved due date at all — an open question, not a pass. */
   notReviewed!: number;
+
+  /** Live activities with at least one unarchived lawful basis pointing at them. */
+  linkedToLawfulBasis!: number;
+  /** Live activities someone has given a classification level. */
+  linkedToClassification!: number;
+  /** Live activities with neither: the register lists them, but nothing else knows about them. */
+  unlinked!: number;
 }
 
 export class CreateRopaActivityDto {
@@ -180,6 +215,15 @@ export class CreateRopaActivityDto {
   @OptionalOrNull()
   @IsUUID()
   retentionRuleId?: string | null;
+
+  /**
+   * The basis stated as the activity is recorded: a DRAFT lawful-basis record for this purpose, created and
+   * linked in the same transaction. Omit it to leave the justification open.
+   */
+  @ApiPropertyOptional({ enum: LAWFUL_BASES, enumName: 'LawfulBasisKind' })
+  @IsOptional()
+  @IsIn(LAWFUL_BASES)
+  lawfulBasis?: LawfulBasisKind;
 
   @TrimToNull()
   @OptionalOrNull()
@@ -395,4 +439,20 @@ export class RopaActivityVersionDto {
 export class LinkRopaEvidenceDto {
   @IsUUID()
   evidenceId!: string;
+}
+
+/**
+ * Stating a further basis for an activity that is already on the register: a DRAFT record created for this
+ * activity. The purpose defaults to what the activity itself says it processes data for.
+ */
+export class LinkRopaLawfulBasisDto {
+  @ApiProperty({ enum: LAWFUL_BASES, enumName: 'LawfulBasisKind' })
+  @IsIn(LAWFUL_BASES)
+  basis!: LawfulBasisKind;
+
+  @TrimToNull()
+  @OptionalOrNull()
+  @IsString()
+  @MaxLength(200)
+  purpose?: string | null;
 }

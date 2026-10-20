@@ -15,6 +15,8 @@ import { UnitOfWork } from '../database/unit-of-work.js';
 import { DashboardService } from '../dashboard/dashboard.service.js';
 import { TopRisksQueryDto } from '../dashboard/dashboard.dto.js';
 import { JobsService } from '../jobs/jobs.service.js';
+import { ListRopaActivitiesQueryDto, type RopaActivityDto } from '../ropa/ropa.dto.js';
+import { RopaService } from '../ropa/ropa.service.js';
 import { SCORING_DISCLAIMER } from '../scoring/scoring.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { StorageProvider } from '../storage/storage-provider.js';
@@ -37,6 +39,11 @@ import {
   executiveDashboard,
   type ExecutiveDashboardData,
 } from './definitions/executive-dashboard.js';
+import {
+  buildRopaRegister,
+  ropaRegister,
+  type RopaRegisterData,
+} from './definitions/ropa-register.js';
 import { REPORT_JOB_TYPES } from './report-jobs.js';
 import { renderPdf } from './pdf.renderer.js';
 import {
@@ -69,6 +76,10 @@ export interface ReportDownload {
 /** One page of items at a time, up to this many rows: a report that stops says that it stopped. */
 const ITEM_PAGE_SIZE = 100;
 const MAX_REPORT_ITEMS = 300;
+
+/** The register is read the same way: page by page, and a document that stops says that it stopped. */
+const REGISTER_PAGE_SIZE = 100;
+const MAX_REGISTER_ROWS = 300;
 
 const PDF_CONTENT_TYPE = 'application/pdf';
 
@@ -231,8 +242,8 @@ function paramOf(param: ReportTemplateDefinition['params'][number]): ReportTempl
  * back through an authorised download. Data is loaded through the SAME services the API answers with, so a PDF
  * cannot disagree with the screen it was opened from (skill: reports-and-documents).
  *
- * The two documents of Phases 5 and 8 stay synchronous: one cycle and one dashboard are small, single-record
- * exports, which the report rules allow to be drawn in the request while still creating the record. The
+ * The three documents of Phases 5, 8 and 9 stay synchronous: one cycle, one dashboard and one standing register
+ * are small reads, which the report rules allow to be drawn in the request while still creating the record. The
  * Consolidated DPO Report is asynchronous — a period can span seven registers, so it answers 202 with a
  * PENDING row and a job fills it in (see `ConsolidatedDpoService`).
  */
@@ -244,6 +255,7 @@ export class ReportsService {
     private readonly assessments: AssessmentsService,
     private readonly items: AssessmentItemsService,
     private readonly dashboard: DashboardService,
+    private readonly ropa: RopaService,
     private readonly settings: SettingsService,
     private readonly storage: StorageProvider,
     private readonly audit: AuditService,
@@ -401,6 +413,83 @@ export class ReportsService {
         topRisks: top.items.length,
       },
     });
+  }
+
+  /**
+   * Renders and stores the Record of Processing Activities (article 30): every live activity with the lawful
+   * basis that justifies it, the classification it carries and the review it is owed. There is nothing to send —
+   * the document is the register as it stands on the day it is drawn.
+   *
+   * The data comes from `RopaService`, the same service the RoPA page reads, including its monitor counts, so
+   * the four figures on the PDF are the four cards on the screen. One request holds at most
+   * `MAX_REGISTER_ROWS` activities; the document states what it left out.
+   */
+  async generateRopaRegister(): Promise<ReportDto> {
+    const organisationId = this.requestContext.requireOrganisationId();
+    const requestedByUserId = needActor(this.requestContext.actorUserId);
+
+    const [settings, monitor] = await Promise.all([this.settings.get(), this.ropa.monitor()]);
+    const rows = await this.collectRegister();
+
+    const reportId = uuidv7();
+    const data: RopaRegisterData = {
+      reportId,
+      organisationName: settings.name,
+      timezone: settings.timezone,
+      generatedAt: this.clock.now(),
+      monitor,
+      rows,
+      rowsOmitted: Math.max(0, monitor.total - rows.length),
+      scoringDisclaimer: SCORING_DISCLAIMER,
+    };
+    const bytes = await renderPdf(buildRopaRegister(data));
+    return this.store({
+      reportId,
+      organisationId,
+      requestedByUserId,
+      template: ropaRegister.id,
+      templateVersion: ropaRegister.version,
+      title: `${ropaRegister.title}: ${settings.name}`,
+      assessmentId: null,
+      params: {},
+      dataSnapshot: {
+        templateVersion: ropaRegister.version,
+        generatedAt: data.generatedAt.toISOString(),
+        monitor: data.monitor,
+        rows: data.rows,
+        rowsOmitted: data.rowsOmitted,
+      },
+      bytes,
+      // What was drawn, not what was drawn of: a register line names people and processing.
+      auditChanges: {
+        template: ropaRegister.id,
+        templateVersion: ropaRegister.version,
+        asOf: monitor.asOf,
+        activities: rows.length,
+        rowsOmitted: data.rowsOmitted,
+      },
+    });
+  }
+
+  /**
+   * The register, page by page through the endpoint the table itself uses, so the PDF and the screen read the
+   * same rows in the same order. `RopaService.list` excludes archived activities unless asked for them, which is
+   * exactly what a document of the standing register wants.
+   */
+  private async collectRegister(): Promise<RopaActivityDto[]> {
+    const collected: RopaActivityDto[] = [];
+    let after: string | null = null;
+    for (;;) {
+      const query = new ListRopaActivitiesQueryDto();
+      query.limit = REGISTER_PAGE_SIZE;
+      if (after !== null) query.after = after;
+      const page = await this.ropa.list(query);
+      collected.push(...page.items);
+      if (page.nextCursor === null || collected.length >= MAX_REGISTER_ROWS) {
+        return collected.slice(0, MAX_REGISTER_ROWS);
+      }
+      after = page.nextCursor;
+    }
   }
 
   /**

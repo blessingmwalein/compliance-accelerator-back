@@ -8554,6 +8554,168 @@
         "x-permission": "data.edit"
       }
     },
+    "/organisations/{organisationId}/ropa/{activityId}/lawful-basis": {
+      "post": {
+        "operationId": "linkRopaLawfulBasis",
+        "parameters": [
+          {
+            "name": "activityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "organisationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkRopaLawfulBasisDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RopaActivityDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session ended.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not allow this action.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a member of this organisation, or the processing activity does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Justify an activity with a lawful basis",
+        "tags": [
+          "ropa"
+        ],
+        "x-access": "permission",
+        "x-permission": "data.edit"
+      }
+    },
+    "/organisations/{organisationId}/ropa/{activityId}/lawful-basis/{recordId}": {
+      "delete": {
+        "operationId": "unlinkRopaLawfulBasis",
+        "parameters": [
+          {
+            "name": "activityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recordId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "organisationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RopaActivityDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session ended.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not allow this action.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a member of this organisation, or the processing activity does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove a lawful basis from an activity (the record itself stays)",
+        "tags": [
+          "ropa"
+        ],
+        "x-access": "permission",
+        "x-permission": "data.edit"
+      }
+    },
     "/organisations/{organisationId}/lawful-basis": {
       "get": {
         "operationId": "listLawfulBasisRecords",
@@ -16227,6 +16389,70 @@
         "x-permission": "reports.export"
       }
     },
+    "/organisations/{organisationId}/reports/ropa-register": {
+      "post": {
+        "operationId": "generateRopaRegister",
+        "parameters": [
+          {
+            "name": "organisationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session ended.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not allow this action.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a member of this organisation, or the report or assessment does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Render and store the Record of Processing Activities PDF",
+        "tags": [
+          "reports"
+        ],
+        "x-access": "permission",
+        "x-permission": "reports.export"
+      }
+    },
     "/organisations/{organisationId}/reports/consolidated-dpo": {
       "post": {
         "operationId": "requestConsolidatedDpo",
@@ -17112,7 +17338,7 @@
   "info": {
     "title": "Fernando Compliance Accelerator API",
     "description": "REST API for the Fernando Compliance Accelerator (FCA) platform. Errors use RFC 9457 problem+json with a stable `code`. Cross-framework mappings and assessments are informative aids and do not constitute legal advice.",
-    "version": "0.11.0",
+    "version": "0.12.0",
     "contact": {}
   },
   "tags": [],
@@ -17266,6 +17492,8 @@
           "ropa_activity.unarchived",
           "ropa_activity.evidence_linked",
           "ropa_activity.evidence_unlinked",
+          "ropa_activity.lawful_basis_linked",
+          "ropa_activity.lawful_basis_unlinked",
           "lawful_basis_record.created",
           "lawful_basis_record.updated",
           "lawful_basis_record.archived",
@@ -23260,9 +23488,67 @@
           "ARCHIVED"
         ]
       },
+      "LawfulBasisKind": {
+        "type": "string",
+        "enum": [
+          "CONSENT",
+          "CONTRACT",
+          "LEGAL_OBLIGATION",
+          "VITAL_INTERESTS",
+          "PUBLIC_TASK",
+          "LEGITIMATE_INTEREST"
+        ]
+      },
+      "LawfulBasisReviewStatus": {
+        "type": "string",
+        "enum": [
+          "DRAFT",
+          "UNDER_REVIEW",
+          "APPROVED"
+        ]
+      },
+      "RopaLawfulBasisDto": {
+        "type": "object",
+        "properties": {
+          "basis": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LawfulBasisKind"
+              }
+            ]
+          },
+          "reviewStatus": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LawfulBasisReviewStatus"
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string",
+            "description": "What that record says the data is processed for — its own words, not the activity's."
+          }
+        },
+        "required": [
+          "basis",
+          "reviewStatus",
+          "id",
+          "purpose"
+        ]
+      },
       "RopaActivityDto": {
         "type": "object",
         "properties": {
+          "lawfulBasisRecords": {
+            "description": "The basis records that justify this activity, oldest first. An empty list says none has been stated.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RopaLawfulBasisDto"
+            }
+          },
           "status": {
             "allOf": [
               {
@@ -23403,6 +23689,7 @@
           }
         },
         "required": [
+          "lawfulBasisRecords",
           "status",
           "lastReviewDate",
           "nextReviewDate",
@@ -23496,6 +23783,18 @@
           "notReviewed": {
             "type": "number",
             "description": "No approved due date at all — an open question, not a pass."
+          },
+          "linkedToLawfulBasis": {
+            "type": "number",
+            "description": "Live activities with at least one unarchived lawful basis pointing at them."
+          },
+          "linkedToClassification": {
+            "type": "number",
+            "description": "Live activities someone has given a classification level."
+          },
+          "unlinked": {
+            "type": "number",
+            "description": "Live activities with neither: the register lists them, but nothing else knows about them."
           }
         },
         "required": [
@@ -23505,7 +23804,10 @@
           "overdue",
           "dueSoon",
           "onTrack",
-          "notReviewed"
+          "notReviewed",
+          "linkedToLawfulBasis",
+          "linkedToClassification",
+          "unlinked"
         ]
       },
       "RopaActivityInitialStatus": {
@@ -23519,6 +23821,14 @@
       "CreateRopaActivityDto": {
         "type": "object",
         "properties": {
+          "lawfulBasis": {
+            "description": "The basis stated as the activity is recorded: a DRAFT lawful-basis record for this purpose, created and\nlinked in the same transaction. Omit it to leave the justification open.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LawfulBasisKind"
+              }
+            ]
+          },
           "status": {
             "description": "A new activity starts as `DRAFT`; `ARCHIVED` is only ever set by the archive endpoint.",
             "allOf": [
@@ -23627,6 +23937,13 @@
       "RopaActivityDetailDto": {
         "type": "object",
         "properties": {
+          "lawfulBasisRecords": {
+            "description": "The basis records that justify this activity, oldest first. An empty list says none has been stated.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RopaLawfulBasisDto"
+            }
+          },
           "status": {
             "allOf": [
               {
@@ -23774,6 +24091,7 @@
           }
         },
         "required": [
+          "lawfulBasisRecords",
           "status",
           "lastReviewDate",
           "nextReviewDate",
@@ -23943,23 +24261,24 @@
           "evidenceId"
         ]
       },
-      "LawfulBasisKind": {
-        "type": "string",
-        "enum": [
-          "CONSENT",
-          "CONTRACT",
-          "LEGAL_OBLIGATION",
-          "VITAL_INTERESTS",
-          "PUBLIC_TASK",
-          "LEGITIMATE_INTEREST"
-        ]
-      },
-      "LawfulBasisReviewStatus": {
-        "type": "string",
-        "enum": [
-          "DRAFT",
-          "UNDER_REVIEW",
-          "APPROVED"
+      "LinkRopaLawfulBasisDto": {
+        "type": "object",
+        "properties": {
+          "basis": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LawfulBasisKind"
+              }
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "basis"
         ]
       },
       "LawfulBasisRecordDto": {
@@ -29341,7 +29660,7 @@
           },
           "template": {
             "type": "string",
-            "description": "One of the catalogue's template ids: `governance_assessment`, `executive_dashboard`, `consolidated_dpo`."
+            "description": "One of the catalogue's template ids: `governance_assessment`, `executive_dashboard`, `ropa_register`,\n`consolidated_dpo`."
           },
           "templateVersion": {
             "type": "number",

@@ -2,8 +2,24 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException, ErrorCode } from '../common/errors/app.exception.js';
 import type { Tx } from '../database/db-client.js';
 import { TenantRepository } from '../database/tenant-repository.js';
-import type { RopaActivityStatus } from '../domain/registers/records.js';
+import type {
+  LawfulBasisKind,
+  LawfulBasisReviewStatus,
+  RopaActivityStatus,
+} from '../domain/registers/records.js';
 import { RequestContext } from '../tenancy/request-context.js';
+
+/**
+ * A basis record that justifies one processing activity. The link is owned by the basis side
+ * (`LawfulBasisRecord.processingActivityId`), because an activity can be justified more than once; the
+ * register reads the records that point at it.
+ */
+export interface RopaBasisLink {
+  id: string;
+  basis: LawfulBasisKind;
+  purpose: string;
+  reviewStatus: LawfulBasisReviewStatus;
+}
 
 /** A processing activity with the names of what it points at, as the API shows it. */
 export interface ActivityRecord {
@@ -16,6 +32,8 @@ export interface ActivityRecord {
   classificationLevelRank: number | null;
   retentionRuleId: string | null;
   retentionRuleName: string | null;
+  /** The basis records that justify this activity, oldest first. Empty means none has been stated. */
+  lawfulBasis: RopaBasisLink[];
   purpose: string | null;
   dataSubjects: string | null;
   personalDataCategories: string | null;
@@ -87,6 +105,12 @@ const SELECT = {
   classificationLevel: { select: { name: true, rank: true } },
   retentionRule: { select: { name: true } },
   owner: { select: { user: { select: { fullName: true } } } },
+  // An archived basis no longer claims to justify anything, so the register reads the live ones only.
+  lawfulBasisRecords: {
+    where: { archivedAt: null },
+    orderBy: { id: 'asc' as const },
+    select: { id: true, basis: true, purpose: true, reviewStatus: true },
+  },
 } as const;
 
 /** The flat names the API shows come from the joined rows, never from the client. */
@@ -96,6 +120,7 @@ const toRecord = (
     classificationLevel: { name: string; rank: number } | null;
     retentionRule: { name: string } | null;
     owner: { user: { fullName: string } } | null;
+    lawfulBasisRecords: readonly RopaBasisLink[];
   } & Omit<
     ActivityRecord,
     | 'businessUnitName'
@@ -103,9 +128,11 @@ const toRecord = (
     | 'classificationLevelRank'
     | 'retentionRuleName'
     | 'ownerName'
+    | 'lawfulBasis'
   >,
 ): ActivityRecord => {
-  const { businessUnit, classificationLevel, retentionRule, owner, ...rest } = row;
+  const { businessUnit, classificationLevel, retentionRule, owner, lawfulBasisRecords, ...rest } =
+    row;
   return {
     ...rest,
     businessUnitName: businessUnit?.name ?? null,
@@ -113,6 +140,7 @@ const toRecord = (
     classificationLevelRank: classificationLevel?.rank ?? null,
     retentionRuleName: retentionRule?.name ?? null,
     ownerName: owner?.user.fullName ?? null,
+    lawfulBasis: [...lawfulBasisRecords],
   };
 };
 
@@ -245,6 +273,60 @@ export class RopaRepository extends TenantRepository {
   async unlinkEvidence(tx: Tx, activityId: string, evidenceId: string): Promise<boolean> {
     const result = await tx.ropaActivityEvidence.deleteMany({
       where: { organisationId: this.organisationId, activityId, evidenceId },
+    });
+    return result.count === 1;
+  }
+
+  // ---- the lawful basis that justifies the activity
+
+  /**
+   * The basis stated while the activity is being recorded: a DRAFT record that points here. Its approval is
+   * a separate decision with its own endpoint, so nothing here claims the processing is justified yet.
+   */
+  createBasisRecord(
+    tx: Tx,
+    data: { basis: LawfulBasisKind; purpose: string; processingActivityId: string },
+  ): Promise<RopaBasisLink> {
+    return tx.lawfulBasisRecord.create({
+      data: {
+        organisationId: this.organisationId,
+        basis: data.basis,
+        purpose: data.purpose,
+        processingActivityId: data.processingActivityId,
+        reviewStatus: 'DRAFT',
+      },
+      select: { id: true, basis: true, purpose: true, reviewStatus: true },
+    });
+  }
+
+  /** A basis record of this organisation, with the activity it currently points at. */
+  findBasisRecord(
+    tx: Tx,
+    id: string,
+  ): Promise<{
+    id: string;
+    purpose: string;
+    processingActivityId: string | null;
+    archivedAt: Date | null;
+  } | null> {
+    return tx.lawfulBasisRecord.findFirst({
+      where: { id, organisationId: this.organisationId },
+      select: { id: true, purpose: true, processingActivityId: true, archivedAt: true },
+    });
+  }
+
+  /**
+   * Detaches a basis from this activity. The version moves so a lawful-basis screen that still holds the old
+   * row fails with `VERSION_CONFLICT` rather than quietly pointing the link back.
+   */
+  async unlinkBasisRecord(tx: Tx, activityId: string, recordId: string): Promise<boolean> {
+    const result = await tx.lawfulBasisRecord.updateMany({
+      where: {
+        id: recordId,
+        organisationId: this.organisationId,
+        processingActivityId: activityId,
+      },
+      data: { processingActivityId: null, version: { increment: 1 } },
     });
     return result.count === 1;
   }

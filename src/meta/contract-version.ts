@@ -4,7 +4,7 @@
  * Must equal `info.version` in `contracts/openapi.json` (enforced by a test and `openapi:check`)
  * and be recorded in `contracts/CHANGELOG.md`.
  */
-export const CONTRACT_VERSION = '0.11.0';
+export const CONTRACT_VERSION = '0.12.0';
 
 /** URL major version of the API (`/api/v1`). Changes only on a breaking contract major. */
 export const API_VERSION = 'v1';

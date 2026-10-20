@@ -81,6 +81,8 @@ export const AUDIT_ACTIONS = [
   'ropa_activity.unarchived',
   'ropa_activity.evidence_linked',
   'ropa_activity.evidence_unlinked',
+  'ropa_activity.lawful_basis_linked',
+  'ropa_activity.lawful_basis_unlinked',
   'lawful_basis_record.created',
   'lawful_basis_record.updated',
   'lawful_basis_record.archived',
