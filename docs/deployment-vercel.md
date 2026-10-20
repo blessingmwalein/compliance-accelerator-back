@@ -34,10 +34,11 @@ owner's to create; the code, the config and the checks are here.
    Build Command is `npm run build`, and `npm ci` runs `prisma generate` through its `postinstall`, so the
    generated client is built on the CI machine and never committed. `vercel.json` has **no `nodeVersion` key**
    on purpose: Vercel's own schema rejects it (`Invalid request: should NOT have additional property
-   nodeVersion`), and the Node runtime is chosen from `engines.node` in `package.json` (`>=24.15.0` → Vercel's
-   Node 24). If the dashboard shows a different Node major, change it in *Settings → Environment Variables →
-   Node.js Version* — not in this file. The keys this file *does* use are the ones the host validates
-   (`https://openapi.vercel.sh/vercel.json`): `includeFiles` is one glob string, not a list.
+   nodeVersion`), and the Node runtime is chosen from `engines.node` in `package.json` (`>=24.15.0` maps to
+   Vercel's latest 24.x; the only versions the host offers are 24.x and 22.x). To override it, use
+   *Settings → Build & Deployment → Node.js Version* — not this file. The keys this file *does* use are the
+   ones the host validates (`https://openapi.vercel.sh/vercel.json`): `includeFiles` is one glob string, not
+   a list.
 
 ## Environment variables
 
@@ -65,13 +66,45 @@ the code reads is missing from it. For a deployment the short list is:
 
 Total environment size is capped by the host (64 KB); the connection strings and the key pair fit comfortably.
 
+### `NODE_OPTIONS`: the one variable the host needs and the app never reads
+
+Set `NODE_OPTIONS=--experimental-require-module` in the Vercel project's Environment Variables, as a
+**Runtime Environment** value for Production and Preview.
+
+NestJS 12 is ESM-only (`@nestjs/common` is `"type": "module"`), while `@nestjs/throttler` 6.7.1 — the newest
+release, and the package that enforces the login rate limits — is still CommonJS and does
+`require('@nestjs/common')`. Node has allowed that since 20.19 / 22.12, but **Vercel's Node runtime disables
+`require()` of an ES module by default at every version** (their own
+[advanced Node.js configuration](https://vercel.com/docs/functions/runtimes/node-js/advanced-node-configuration)
+says so and names this flag as the way to re-enable it). Without it the function dies while importing the
+module tree, before any route is reachable, and the browser only ever sees
+`500 FUNCTION_INVOCATION_FAILED`:
+
+```text
+Error [ERR_REQUIRE_ESM]: require() of ES Module /var/task/node_modules/@nestjs/common/index.js
+from /var/task/node_modules/@nestjs/throttler/dist/throttler.decorator.js not supported.
+```
+
+The flag is not in [../.env.example](../.env.example) and no code reads it: `process.env.NODE_OPTIONS` is
+consumed by Node itself before the application starts, which is why `npm run check:docs` cannot see it either.
+Reproduced and closed locally on Node 24 — `node --no-experimental-require-module -e
+"require('@nestjs/throttler')"` prints that error byte for byte, and the same require succeeds with the flag.
+A whole-tree scan of `node_modules` found only two CommonJS packages that `require` an ESM Nest package:
+`@nestjs/throttler`, which has no `exports` map and so always loads its CJS build, and `nestjs-pino`, which is
+dual and whose ESM build this ESM app resolves. Throttler is therefore the only breakage, and one variable
+closes it.
+
 ## First checks after a deploy
 
 ```bash
 curl -s https://<api-host>/api/v1/health          # 200, { "status": "ok" }
 curl -s https://<api-host>/api/v1/health/ready    # 200 with a live database, 503 + DATABASE_* otherwise
-curl -s https://<api-host>/api/v1/meta            # contractVersion 0.10.0, evidenceMaxBytes 4194304
+curl -s https://<api-host>/api/v1/meta            # contractVersion 0.11.0, evidenceMaxBytes 4194304
 ```
+
+If the first request instead returns `500 FUNCTION_INVOCATION_FAILED`, open *Runtime Logs* for that deployment
+before changing any code: `ERR_REQUIRE_ESM` means the `NODE_OPTIONS` variable above is missing, or was added for
+the build but not for the Runtime Environment.
 
 Then the two things the platform can prove and a log line cannot: sign in through the deployed web app, and
 upload an evidence file. The upload is the storage test — a wrong endpoint, region, key or bucket name fails

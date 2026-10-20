@@ -14,6 +14,7 @@ import {
   type PdfBlock,
   type PdfDocument,
 } from '../pdf-document.js';
+import type { ReportTemplateDefinition } from './registry.js';
 
 /** What the caller asks a report to cover: one cycle, optionally narrowed to one unit and one framework. */
 export interface GovernanceAssessmentParams {
@@ -48,7 +49,30 @@ export const governanceAssessment = {
   id: 'governance_assessment',
   version: 1,
   title: 'Governance Assessment',
-} as const;
+  description:
+    'One assessment cycle: its roll-up, the exposure distribution, every assessed subject and the findings recorded against them.',
+  generate: 'sync',
+  params: [
+    {
+      name: 'assessmentId',
+      type: 'uuid',
+      required: true,
+      description: 'The assessment cycle this document covers.',
+    },
+    {
+      name: 'businessUnitId',
+      type: 'uuid',
+      required: false,
+      description: 'Narrow the tables to one business unit. Omit for every unit in the cycle.',
+    },
+    {
+      name: 'frameworkId',
+      type: 'uuid',
+      required: false,
+      description: 'Narrow the tables to one framework. Omit for every framework the cycle covers.',
+    },
+  ],
+} as const satisfies ReportTemplateDefinition;
 
 const NOT_ASSESSED = 'Not assessed';
 const NO_RECORDS = 'No records';

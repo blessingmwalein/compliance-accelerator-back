@@ -9,5 +9,7 @@ import { RetentionService } from './retention.service.js';
   imports: [AuditModule],
   controllers: [RetentionController],
   providers: [RetentionRepository, RetentionService],
+  // The Consolidated DPO Report (Phase 9a) reads the schedule the way a screen does: through this service.
+  exports: [RetentionService],
 })
 export class RetentionModule {}

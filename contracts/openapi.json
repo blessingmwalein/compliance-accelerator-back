@@ -1,6 +1,322 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/organisations/{organisationId}/audit/export": {
+      "get": {
+        "description": "One file carries at most 5,000 events; a period that holds more is refused with EXPORT_RANGE_TOO_LARGE so the caller narrows the range instead of receiving a silent half. The `changes` column is JSON and is cut at 1,000 characters per row, marked \"[truncated]\" — the list endpoint returns the full values.",
+        "operationId": "exportAuditEvents",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "after",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Only events from this calendar day onward (UTC day start, inclusive).",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Only events up to and including this calendar day (the whole UTC day, so a time of day cannot hide one).",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "actorUserId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AuditAction"
+            }
+          },
+          {
+            "name": "entityType",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 60,
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
+            "name": "outcome",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AuditOutcome"
+            }
+          },
+          {
+            "name": "organisationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The CSV file.",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session ended.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not allow this action.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a member of this organisation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "More events fall in this period than one export can carry.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Download the filtered trail as CSV (the export itself is recorded in the trail)",
+        "tags": [
+          "audit"
+        ],
+        "x-access": "permission",
+        "x-permission": "audit.export"
+      }
+    },
+    "/organisations/{organisationId}/audit": {
+      "get": {
+        "operationId": "listAuditEvents",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "after",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Only events from this calendar day onward (UTC day start, inclusive).",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Only events up to and including this calendar day (the whole UTC day, so a time of day cannot hide one).",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "actorUserId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AuditAction"
+            }
+          },
+          {
+            "name": "entityType",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 60,
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
+            "name": "outcome",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AuditOutcome"
+            }
+          },
+          {
+            "name": "organisationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditEventPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A filter is not a valid date, id or known action.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session ended.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not allow this action.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a member of this organisation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Search the trail by period, actor, action or record (newest first)",
+        "tags": [
+          "audit"
+        ],
+        "x-access": "permission",
+        "x-permission": "audit.view"
+      }
+    },
     "/auth/register": {
       "post": {
         "operationId": "register",
@@ -15911,6 +16227,297 @@
         "x-permission": "reports.export"
       }
     },
+    "/organisations/{organisationId}/reports/consolidated-dpo": {
+      "post": {
+        "operationId": "requestConsolidatedDpo",
+        "parameters": [
+          {
+            "name": "organisationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateConsolidatedDpoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The queued report. Its `status` is PENDING until a job has drawn it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed: the period is not one the catalogue lists.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session ended.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not allow this action.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a member of this organisation, or the report or assessment does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Queue the Consolidated DPO Report and return its PENDING record",
+        "tags": [
+          "reports"
+        ],
+        "x-access": "permission",
+        "x-permission": "reports.export"
+      }
+    },
+    "/organisations/{organisationId}/reports/catalogue": {
+      "get": {
+        "operationId": "getReportCatalogue",
+        "parameters": [
+          {
+            "name": "organisationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCatalogueDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session ended.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not allow this action.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a member of this organisation, or the report or assessment does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the report templates this build can render",
+        "tags": [
+          "reports"
+        ],
+        "x-access": "permission",
+        "x-permission": "reports.view"
+      }
+    },
+    "/organisations/{organisationId}/reports": {
+      "get": {
+        "operationId": "listReports",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "after",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "template",
+            "required": false,
+            "in": "query",
+            "description": "One template id.",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "PENDING, READY or FAILED.",
+            "schema": {
+              "$ref": "#/components/schemas/ReportStatus"
+            }
+          },
+          {
+            "name": "assessmentId",
+            "required": false,
+            "in": "query",
+            "description": "Only the reports of one assessment cycle.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Only reports requested from this calendar day onward (UTC day start, inclusive).",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Only reports requested up to and including this calendar day (the whole UTC day).",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "organisationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed: a date is not YYYY-MM-DD, a status is not one of the three, or the cursor is not a uuid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session ended.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not allow this action.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a member of this organisation, or the report or assessment does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List past reports with their state",
+        "tags": [
+          "reports"
+        ],
+        "x-access": "permission",
+        "x-permission": "reports.view"
+      }
+    },
     "/organisations/{organisationId}/reports/{reportId}": {
       "get": {
         "operationId": "getReport",
@@ -16505,7 +17112,7 @@
   "info": {
     "title": "Fernando Compliance Accelerator API",
     "description": "REST API for the Fernando Compliance Accelerator (FCA) platform. Errors use RFC 9457 problem+json with a stable `code`. Cross-framework mappings and assessments are informative aids and do not constitute legal advice.",
-    "version": "0.10.0",
+    "version": "0.11.0",
     "contact": {}
   },
   "tags": [],
@@ -16579,6 +17186,241 @@
           "status",
           "code",
           "requestId"
+        ]
+      },
+      "AuditAction": {
+        "type": "string",
+        "enum": [
+          "organisation.created",
+          "membership.created",
+          "membership.role_changed",
+          "membership.deactivated",
+          "membership.reactivated",
+          "invitation.created",
+          "invitation.resent",
+          "invitation.revoked",
+          "invitation.accepted",
+          "settings.updated",
+          "settings.logo_updated",
+          "settings.logo_removed",
+          "regulator_contact.created",
+          "regulator_contact.updated",
+          "regulator_contact.deleted",
+          "business_unit.created",
+          "business_unit.updated",
+          "business_unit.archived",
+          "business_unit.unarchived",
+          "framework.added",
+          "framework.removed",
+          "entitlement.assigned",
+          "governance_area.created",
+          "governance_area.updated",
+          "governance_area.archived",
+          "governance_area.unarchived",
+          "mapping.created",
+          "mapping.updated",
+          "mapping.archived",
+          "mapping.unarchived",
+          "mapping.defaults_loaded",
+          "scoring_policy.updated",
+          "assessment.created",
+          "assessment.updated",
+          "assessment.deleted",
+          "assessment.submitted",
+          "assessment.returned",
+          "assessment.approved",
+          "assessment.superseded",
+          "assessment.revised",
+          "assessment_item.created",
+          "assessment_item.updated",
+          "assessment_item.deleted",
+          "assessment_item.bulk_created",
+          "assessment_item.evidence_linked",
+          "assessment_item.evidence_unlinked",
+          "priority.answered",
+          "priority.adjusted",
+          "remediation_task.created",
+          "remediation_task.generated",
+          "remediation_task.updated",
+          "remediation_task.status_changed",
+          "remediation_task.commented",
+          "remediation_task.evidence_linked",
+          "remediation_task.evidence_unlinked",
+          "evidence.uploaded",
+          "evidence.updated",
+          "evidence.downloaded",
+          "report.generated",
+          "report.downloaded",
+          "risk.created",
+          "risk.updated",
+          "risk.status_changed",
+          "risk_acceptance.accepted",
+          "risk_acceptance.withdrawn",
+          "classification_level.created",
+          "classification_level.updated",
+          "classification_level.archived",
+          "classification_level.unarchived",
+          "ropa_activity.created",
+          "ropa_activity.updated",
+          "ropa_activity.archived",
+          "ropa_activity.unarchived",
+          "ropa_activity.evidence_linked",
+          "ropa_activity.evidence_unlinked",
+          "lawful_basis_record.created",
+          "lawful_basis_record.updated",
+          "lawful_basis_record.archived",
+          "lawful_basis_record.unarchived",
+          "lawful_basis_record.review_status_changed",
+          "lawful_basis_record.evidence_linked",
+          "lawful_basis_record.evidence_unlinked",
+          "retention_rule.created",
+          "retention_rule.updated",
+          "retention_rule.archived",
+          "retention_rule.unarchived",
+          "legal_hold.placed",
+          "legal_hold.released",
+          "retention_disposal.recorded",
+          "deadline_policy.updated",
+          "dsar_request.created",
+          "dsar_request.updated",
+          "dsar_request.status_changed",
+          "dsar_request.identity_verified",
+          "dsar_request.extended",
+          "dsar_request.communication_added",
+          "dsar_request.evidence_linked",
+          "dsar_request.evidence_unlinked",
+          "breach.created",
+          "breach.updated",
+          "breach.status_changed",
+          "breach.chronology_added",
+          "breach.decision_recorded",
+          "breach.evidence_linked",
+          "breach.evidence_unlinked",
+          "evidence.version_uploaded",
+          "evidence.review_changed",
+          "evidence.scan_attested",
+          "reminder.created",
+          "reminder.updated",
+          "reminder.completed",
+          "reminder.cancelled",
+          "reminder.preference_updated",
+          "audit.exported",
+          "report.requested",
+          "report.ready",
+          "report.failed"
+        ]
+      },
+      "AuditOutcome": {
+        "type": "string",
+        "enum": [
+          "SUCCESS",
+          "DENIED",
+          "FAILURE"
+        ]
+      },
+      "AuditActorType": {
+        "type": "string",
+        "enum": [
+          "USER",
+          "SYSTEM"
+        ]
+      },
+      "AuditEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "occurredAt": {
+            "type": "string",
+            "description": "The database clock at the moment of the change — never a client-supplied time.",
+            "format": "date-time"
+          },
+          "actorType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuditActorType"
+              }
+            ]
+          },
+          "actorUserId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Who acted, by id and never by name or address: `audit.view` reaches a Compliance Manager while\n`users.view` does not, so the trail cannot hand out member data the caller could not otherwise read.\nNull when `actorType` is `SYSTEM`, which is a job acting on the organisation's own settings.",
+            "format": "uuid"
+          },
+          "action": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuditAction"
+              }
+            ]
+          },
+          "entityType": {
+            "type": "string",
+            "description": "The kind of record acted on (`report`, `dsar_request`, …). Free text by design: it outlives any module."
+          },
+          "entityId": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityLabel": {
+            "type": "string",
+            "nullable": true,
+            "description": "The name or code as it read at the time, so the row stays understandable after a rename."
+          },
+          "outcome": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuditOutcome"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Ties every event of one request together, including the ones a rejected request still wrote."
+          },
+          "changes": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true,
+            "description": "Field-level before/after values, redacted when written. Secrets never reach this column."
+          }
+        },
+        "required": [
+          "id",
+          "occurredAt",
+          "actorType",
+          "actorUserId",
+          "action",
+          "entityType",
+          "entityId",
+          "entityLabel",
+          "outcome",
+          "requestId",
+          "changes"
+        ]
+      },
+      "AuditEventPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditEventDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Pass as `after` to get the next page; null on the last page."
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
         ]
       },
       "RegisterDto": {
@@ -28429,12 +29271,30 @@
             "nullable": true,
             "description": "Null = every framework the organisation applies.",
             "format": "uuid"
+          },
+          "period": {
+            "nullable": true,
+            "description": "The window a Consolidated DPO Report covered; null for a template that takes no period.",
+            "enum": [
+              "last_30_days",
+              "last_6_months",
+              "this_year",
+              "all"
+            ],
+            "type": "string"
+          },
+          "confidential": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Whether the confidentiality marking was printed. Null for a template with no such choice."
           }
         },
         "required": [
           "assessmentId",
           "businessUnitId",
-          "frameworkId"
+          "frameworkId",
+          "period",
+          "confidential"
         ]
       },
       "ReportDto": {
@@ -28450,12 +29310,42 @@
           "params": {
             "$ref": "#/components/schemas/ReportParamsDto"
           },
+          "size": {
+            "type": "number",
+            "nullable": true,
+            "description": "Bytes of the stored PDF, measured by the server. Null until the document exists."
+          },
+          "sha256": {
+            "type": "string",
+            "nullable": true,
+            "description": "SHA-256 (hex) of the stored PDF. Null until the document exists."
+          },
+          "finishedAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "When it became readable, or when the job gave up. Null while it is PENDING.",
+            "format": "date-time"
+          },
+          "errorCode": {
+            "type": "string",
+            "nullable": true,
+            "description": "Set when `status` is FAILED: the code a client branches on."
+          },
+          "errorDetail": {
+            "type": "string",
+            "nullable": true,
+            "description": "Set when `status` is FAILED: one sentence in the reader's language, never a stack trace."
+          },
           "id": {
             "type": "string"
           },
           "template": {
             "type": "string",
-            "description": "`governance_assessment` (one cycle) or `executive_dashboard` (the whole organisation); the rest of the catalogue is Phase 9a."
+            "description": "One of the catalogue's template ids: `governance_assessment`, `executive_dashboard`, `consolidated_dpo`."
+          },
+          "templateVersion": {
+            "type": "number",
+            "description": "The definition version that rendered it, so a later change of layout can be told apart from new data."
           },
           "title": {
             "type": "string"
@@ -28464,14 +29354,6 @@
             "type": "string",
             "nullable": true,
             "description": "The assessment this report is about (null for a report that spans the organisation)."
-          },
-          "size": {
-            "type": "number",
-            "description": "Bytes of the stored PDF, measured by the server."
-          },
-          "sha256": {
-            "type": "string",
-            "description": "SHA-256 (hex) of the stored PDF."
           },
           "requestedByUserId": {
             "type": "string"
@@ -28483,14 +29365,211 @@
         "required": [
           "status",
           "params",
-          "id",
-          "template",
-          "title",
-          "assessmentId",
           "size",
           "sha256",
+          "finishedAt",
+          "errorCode",
+          "errorDetail",
+          "id",
+          "template",
+          "templateVersion",
+          "title",
+          "assessmentId",
           "requestedByUserId",
           "createdAt"
+        ]
+      },
+      "DpoPeriod": {
+        "type": "string",
+        "enum": [
+          "last_30_days",
+          "last_6_months",
+          "this_year",
+          "all"
+        ],
+        "description": "The window the document covers, counted back from the day it is drawn."
+      },
+      "GenerateConsolidatedDpoDto": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "default": "last_30_days",
+            "description": "The window the document covers, counted back from the day it is drawn.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DpoPeriod"
+              }
+            ]
+          },
+          "confidential": {
+            "type": "boolean",
+            "description": "Omit for true: the marking the DPO sends a regulator.",
+            "default": true
+          }
+        }
+      },
+      "ReportGeneration": {
+        "type": "string",
+        "enum": [
+          "sync",
+          "async"
+        ]
+      },
+      "ReportParamType": {
+        "type": "string",
+        "enum": [
+          "uuid",
+          "enum",
+          "boolean"
+        ]
+      },
+      "ReportTemplateParamDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReportParamType"
+              }
+            ]
+          },
+          "values": {
+            "nullable": true,
+            "description": "The accepted values when `type` is `enum`; null for the others.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "default": {
+            "type": "string",
+            "nullable": true,
+            "description": "The value used when the field is omitted, as the text the form shows; null when there is no default."
+          },
+          "name": {
+            "type": "string",
+            "description": "The body field's name."
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string",
+            "description": "What it narrows the document to, in the reader's words."
+          }
+        },
+        "required": [
+          "type",
+          "values",
+          "default",
+          "name",
+          "required",
+          "description"
+        ]
+      },
+      "ReportTemplateDto": {
+        "type": "object",
+        "properties": {
+          "generate": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReportGeneration"
+              }
+            ]
+          },
+          "params": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportTemplateParamDto"
+            }
+          },
+          "template": {
+            "type": "string",
+            "description": "The id to generate with, and the value `template` carries on stored reports."
+          },
+          "version": {
+            "type": "number"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "permission": {
+            "type": "string",
+            "description": "The permission the generate route asks for. It is the same value the route's own access decorator\ncarries (`REPORT_PERMISSIONS`), so the catalogue cannot promise a document the guard would refuse."
+          }
+        },
+        "required": [
+          "generate",
+          "params",
+          "template",
+          "version",
+          "title",
+          "description",
+          "permission"
+        ]
+      },
+      "PlannedReportTemplateDto": {
+        "type": "object",
+        "properties": {
+          "template": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "phase": {
+            "type": "string",
+            "description": "The phase that writes it, in the plan's own numbering."
+          }
+        },
+        "required": [
+          "template",
+          "title",
+          "phase"
+        ]
+      },
+      "ReportCatalogueDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportTemplateDto"
+            }
+          },
+          "planned": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlannedReportTemplateDto"
+            }
+          }
+        },
+        "required": [
+          "items",
+          "planned"
+        ]
+      },
+      "ReportPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Pass as `after` to get the next page; null on the last page."
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
         ]
       },
       "PlanDto": {

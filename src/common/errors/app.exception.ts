@@ -100,6 +100,16 @@ export const ErrorCode = {
   BreachDecisionRequired: 'BREACH_DECISION_REQUIRED',
   /** `?version=n` named a version this item's ledger never had. */
   EvidenceVersionNotFound: 'EVIDENCE_VERSION_NOT_FOUND',
+  /**
+   * A CSV export would be larger than one file can carry (the audit trail is append-only and never pruned).
+   * The answer is a narrower period, not a smaller row set, so the caller is told instead of truncated.
+   */
+  ExportRangeTooLarge: 'EXPORT_RANGE_TOO_LARGE',
+  /**
+   * A queued report ran out of attempts and nothing else explains it: the record carries the code, and the
+   * document does not exist. Distinct from `EXPORT_RANGE_TOO_LARGE`, which is a request the caller can fix.
+   */
+  ReportGenerationFailed: 'REPORT_GENERATION_FAILED',
 } as const;
 
 export type ErrorCodeValue = (typeof ErrorCode)[keyof typeof ErrorCode];

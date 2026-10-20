@@ -9,5 +9,7 @@ import { RopaService } from './ropa.service.js';
   imports: [AuditModule],
   controllers: [RopaController],
   providers: [RopaRepository, RopaService],
+  // The Consolidated DPO Report (Phase 9a) reads the register the way a screen does: through this service.
+  exports: [RopaService],
 })
 export class RopaModule {}

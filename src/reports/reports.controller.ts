@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Req,
   Res,
 } from '@nestjs/common';
@@ -17,13 +18,23 @@ import {
   ApiOperation,
   ApiParam,
   ApiProduces,
+  ApiQuery,
+  ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { RequirePermission } from '../auth/access.decorators.js';
 import { ApiProblemResponse } from '../common/errors/api-problem-response.decorator.js';
 import { contentDisposition } from '../common/http/content-disposition.js';
-import { GenerateGovernanceAssessmentDto, ReportDto } from './reports.dto.js';
+import { REPORT_PERMISSIONS } from './definitions/registry.js';
+import {
+  GenerateConsolidatedDpoDto,
+  GenerateGovernanceAssessmentDto,
+  ListReportsQueryDto,
+  ReportCatalogueDto,
+  ReportDto,
+  ReportPageDto,
+} from './reports.dto.js';
 import { ReportsService } from './reports.service.js';
 
 /**
@@ -49,7 +60,7 @@ export class ReportsController {
    */
   @Post('governance-assessment')
   @HttpCode(HttpStatus.CREATED)
-  @RequirePermission('reports.export')
+  @RequirePermission(REPORT_PERMISSIONS.export)
   @ApiOperation({
     operationId: 'generateGovernanceAssessment',
     summary: 'Render and store the Governance Assessment PDF of an assessment',
@@ -71,7 +82,7 @@ export class ReportsController {
    */
   @Post('executive-dashboard')
   @HttpCode(HttpStatus.CREATED)
-  @RequirePermission('reports.export')
+  @RequirePermission(REPORT_PERMISSIONS.export)
   @ApiOperation({
     operationId: 'generateExecutiveDashboard',
     summary: 'Render and store the Executive Dashboard PDF',
@@ -81,9 +92,79 @@ export class ReportsController {
     return this.reports.generateExecutiveDashboard();
   }
 
+  /**
+   * Asks for the Consolidated DPO Report: the record is written and the job queued, and the answer is the
+   * PENDING row (202, no body of its own beyond the record). The document is drawn by the job runner, which is
+   * what makes a period over seven registers possible at all; `GET …/reports/{id}` is the poll, and the bytes
+   * appear on the download route once the row is READY.
+   */
+  @Post('consolidated-dpo')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @RequirePermission(REPORT_PERMISSIONS.export)
+  @ApiOperation({
+    operationId: 'requestConsolidatedDpo',
+    summary: 'Queue the Consolidated DPO Report and return its PENDING record',
+  })
+  @ApiBody({ type: GenerateConsolidatedDpoDto })
+  @ApiResponse({
+    status: HttpStatus.ACCEPTED,
+    type: ReportDto,
+    description: 'The queued report. Its `status` is PENDING until a job has drawn it.',
+  })
+  @ApiProblemResponse(
+    HttpStatus.BAD_REQUEST,
+    'Validation failed: the period is not one the catalogue lists.',
+  )
+  requestConsolidatedDpo(@Body() dto: GenerateConsolidatedDpoDto): Promise<ReportDto> {
+    return this.reports.requestConsolidatedDpo(dto);
+  }
+
+  /**
+   * The catalogue: what this build can render, each template with its version, its parameters and the
+   * permission that generates it, plus the templates a later phase writes. Static reference data, so no row is
+   * read and nothing is tenant-scoped about it.
+   */
+  @Get('catalogue')
+  @RequirePermission(REPORT_PERMISSIONS.view)
+  @ApiOperation({
+    operationId: 'getReportCatalogue',
+    summary: 'List the report templates this build can render',
+  })
+  @ApiOkResponse({ type: ReportCatalogueDto })
+  catalogue(): ReportCatalogueDto {
+    return this.reports.catalogue();
+  }
+
+  /**
+   * The history: every report this organisation asked for, newest first, with the filters a reader actually
+   * has — a template, a state, one assessment cycle, a window of days. A PENDING or FAILED row is listed here
+   * like any other: the list is where a client sees that a document did not arrive.
+   */
+  @Get()
+  @RequirePermission(REPORT_PERMISSIONS.view)
+  @ApiOperation({ operationId: 'listReports', summary: 'List past reports with their state' })
+  @ApiOkResponse({ type: ReportPageDto })
+  @ApiQuery({ name: 'template', type: String, required: false, description: 'One template id.' })
+  @ApiQuery({
+    name: 'status',
+    enumName: 'ReportStatus',
+    required: false,
+    description: 'PENDING, READY or FAILED.',
+  })
+  @ApiQuery({ name: 'assessmentId', type: String, format: 'uuid', required: false })
+  @ApiQuery({ name: 'from', type: String, format: 'date', required: false })
+  @ApiQuery({ name: 'to', type: String, format: 'date', required: false })
+  @ApiProblemResponse(
+    HttpStatus.BAD_REQUEST,
+    'Validation failed: a date is not YYYY-MM-DD, a status is not one of the three, or the cursor is not a uuid.',
+  )
+  list(@Query() query: ListReportsQueryDto): Promise<ReportPageDto> {
+    return this.reports.list(query);
+  }
+
   /** One stored report: its parameters, status, size and checksum. The bytes come from the download route. */
   @Get(':reportId')
-  @RequirePermission('reports.view')
+  @RequirePermission(REPORT_PERMISSIONS.view)
   @ApiOperation({ operationId: 'getReport', summary: 'Read one stored report' })
   @ApiOkResponse({ type: ReportDto })
   get(@Param('reportId', ParseUUIDPipe) reportId: string): Promise<ReportDto> {
@@ -95,7 +176,7 @@ export class ReportsController {
    * unchanged file costs a 304 rather than a download; every download is audited.
    */
   @Get(':reportId/download')
-  @RequirePermission('reports.view')
+  @RequirePermission(REPORT_PERMISSIONS.view)
   @ApiOperation({
     operationId: 'downloadReport',
     summary: 'Download a stored report (proxied, with attachment disposition)',

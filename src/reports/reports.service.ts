@@ -9,14 +9,23 @@ import {
 } from '../assessments/assessments.dto.js';
 import { Clock } from '../common/clock.js';
 import { AppException, ErrorCode } from '../common/errors/app.exception.js';
+import { pageSizeOf, toPage } from '../common/pagination.js';
 import { uuidv7 } from '../common/uuid.js';
 import { UnitOfWork } from '../database/unit-of-work.js';
 import { DashboardService } from '../dashboard/dashboard.service.js';
 import { TopRisksQueryDto } from '../dashboard/dashboard.dto.js';
+import { JobsService } from '../jobs/jobs.service.js';
 import { SCORING_DISCLAIMER } from '../scoring/scoring.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { StorageProvider } from '../storage/storage-provider.js';
 import { RequestContext } from '../tenancy/request-context.js';
+import {
+  PLANNED_REPORT_TEMPLATES,
+  REPORT_PERMISSIONS,
+  REPORT_TEMPLATES,
+  type ReportTemplateDefinition,
+} from './definitions/registry.js';
+import { consolidatedDpo, type ConsolidatedDpoParams } from './definitions/consolidated-dpo.js';
 import {
   build,
   governanceAssessment,
@@ -28,8 +37,21 @@ import {
   executiveDashboard,
   type ExecutiveDashboardData,
 } from './definitions/executive-dashboard.js';
+import { REPORT_JOB_TYPES } from './report-jobs.js';
 import { renderPdf } from './pdf.renderer.js';
-import type { GenerateGovernanceAssessmentDto, ReportDto, ReportParamsDto } from './reports.dto.js';
+import {
+  DEFAULT_DPO_PERIOD,
+  DPO_PERIODS,
+  type DpoPeriodValue,
+  type GenerateConsolidatedDpoDto,
+  type GenerateGovernanceAssessmentDto,
+  type ListReportsQueryDto,
+  type ReportCatalogueDto,
+  type ReportDto,
+  type ReportPageDto,
+  type ReportParamsDto,
+  type ReportTemplateParamDto,
+} from './reports.dto.js';
 import {
   ReportsRepository,
   type ReportCreateFields,
@@ -60,6 +82,19 @@ const bytesMissing = () =>
     'The stored PDF for this report is missing.',
   );
 
+/**
+ * A document that has not been drawn yet, or that a job gave up on. It is a conflict rather than a not-found:
+ * the record exists and the client is polling it, so the reason belongs in the answer.
+ */
+const notDownloadable = (status: string) =>
+  new AppException(
+    ErrorCode.Conflict,
+    HttpStatus.CONFLICT,
+    status === 'PENDING'
+      ? 'This report is still being generated. Read its record, then download it when it is READY.'
+      : 'This report did not finish. Its record carries the reason.',
+  );
+
 const needActor = (actorUserId: string | undefined): string => {
   if (!actorUserId) throw new Error('Generating a report needs a signed-in actor');
   return actorUserId;
@@ -70,22 +105,32 @@ function paramsOf(stored: unknown, assessmentId: string | null): ReportParamsDto
   const value = (stored ?? {}) as Record<string, unknown>;
   const text = (key: string): string | null =>
     typeof value[key] === 'string' ? (value[key] as string) : null;
+  const period = text('period');
   return {
     assessmentId: text('assessmentId') ?? assessmentId,
     businessUnitId: text('businessUnitId'),
     frameworkId: text('frameworkId'),
+    period:
+      period !== null && (DPO_PERIODS as readonly string[]).includes(period)
+        ? (period as DpoPeriodValue)
+        : null,
+    confidential: typeof value.confidential === 'boolean' ? value.confidential : null,
   };
 }
 
 const toDto = (record: ReportRecord): ReportDto => ({
   id: record.id,
   template: record.template,
+  templateVersion: record.templateVersion,
   title: record.title,
   assessmentId: record.assessmentId,
   status: record.status,
   params: paramsOf(record.params, record.assessmentId),
   size: record.size,
   sha256: record.sha256,
+  finishedAt: record.finishedAt?.toISOString() ?? null,
+  errorCode: record.errorCode,
+  errorDetail: record.errorDetail,
   requestedByUserId: record.requestedByUserId,
   createdAt: record.createdAt.toISOString(),
 });
@@ -168,15 +213,28 @@ function executiveSnapshotOf(data: ExecutiveDashboardData): Record<string, unkno
   };
 }
 
+/** The catalogue's wording of one parameter: the optional fields become the nulls the contract states. */
+function paramOf(param: ReportTemplateDefinition['params'][number]): ReportTemplateParamDto {
+  return {
+    name: param.name,
+    type: param.type,
+    required: param.required,
+    description: param.description,
+    values: param.values ?? null,
+    default: param.default ?? null,
+  };
+}
+
 /**
- * Reports (Phase 5 core): a document rendered on the server from authorised, organisation-scoped data, stored as
- * a record with its parameters, a data snapshot and a checksum, and served back through an authorised download.
- * Data is loaded through the SAME services the API answers with, so a PDF cannot disagree with the screen it
- * was opened from (skill: reports-and-documents).
+ * Reports (Phase 5 core, catalogue and history in 9a): a document rendered on the server from authorised,
+ * organisation-scoped data, stored as a record with its parameters, a data snapshot and a checksum, and served
+ * back through an authorised download. Data is loaded through the SAME services the API answers with, so a PDF
+ * cannot disagree with the screen it was opened from (skill: reports-and-documents).
  *
- * Generation is synchronous here on purpose: one assessment cycle is a small, single-record export, which the
- * report skill allows to stream directly while still creating the record. The asynchronous catalogue, the
- * history list and the remaining templates are Phase 9a.
+ * The two documents of Phases 5 and 8 stay synchronous: one cycle and one dashboard are small, single-record
+ * exports, which the report rules allow to be drawn in the request while still creating the record. The
+ * Consolidated DPO Report is asynchronous — a period can span seven registers, so it answers 202 with a
+ * PENDING row and a job fills it in (see `ConsolidatedDpoService`).
  */
 @Injectable()
 export class ReportsService {
@@ -191,7 +249,49 @@ export class ReportsService {
     private readonly audit: AuditService,
     private readonly clock: Clock,
     private readonly requestContext: RequestContext,
+    private readonly jobs: JobsService,
   ) {}
+
+  /**
+   * What this build can render, and what a later phase will: the generate screen is built from it, so a
+   * template's title, version, parameters and mode exist in exactly one place — the definitions themselves.
+   */
+  catalogue(): ReportCatalogueDto {
+    return {
+      items: REPORT_TEMPLATES.map((template) => ({
+        template: template.id,
+        version: template.version,
+        title: template.title,
+        description: template.description,
+        generate: template.generate,
+        permission: REPORT_PERMISSIONS.export,
+        params: template.params.map(paramOf),
+      })),
+      planned: PLANNED_REPORT_TEMPLATES.map((template) => ({
+        template: template.id,
+        title: template.title,
+        phase: template.phase,
+      })),
+    };
+  }
+
+  /** The history list: every report this organisation asked for, newest first, whatever its state. */
+  async list(query: ListReportsQueryDto): Promise<ReportPageDto> {
+    const limit = pageSizeOf(query);
+    const rows = await this.uow.run((tx) =>
+      this.reports.list(tx, {
+        limit,
+        ...(query.after ? { after: query.after } : {}),
+        ...(query.template ? { template: query.template } : {}),
+        ...(query.status ? { status: query.status } : {}),
+        ...(query.assessmentId ? { assessmentId: query.assessmentId } : {}),
+        ...(query.from ? { from: query.from } : {}),
+        ...(query.to ? { to: query.to } : {}),
+      }),
+    );
+    const page = toPage(rows, limit);
+    return { items: page.items.map(toDto), nextCursor: page.nextCursor };
+  }
 
   /** Renders the Governance Assessment of one cycle and stores it (AC-GOV-05: Export PDF is a real file). */
   async generate(dto: GenerateGovernanceAssessmentDto): Promise<ReportDto> {
@@ -231,6 +331,7 @@ export class ReportsService {
       organisationId,
       requestedByUserId,
       template: governanceAssessment.id,
+      templateVersion: governanceAssessment.version,
       title: `${governanceAssessment.title}: ${assessment.title}`,
       assessmentId: assessment.id,
       params: { ...params },
@@ -247,8 +348,9 @@ export class ReportsService {
   }
 
   /**
-   * Renders the Executive Dashboard (Phase 8) and stores it: the organisation-wide figures, the framework
-   * comparison, the gap list and the highest-exposure risks, as of the day the document is drawn.
+   * Renders and stores the Executive Dashboard (Phase 8): the organisation-wide figures, the framework
+   * comparison, the gap list and the highest-exposure risks. There is nothing to send: the document covers the
+   * whole organisation, as of the day it is drawn, from the same payloads the dashboard screen reads.
    *
    * The data is read through the dashboard's own service, so the PDF carries the numbers the screen shows.
    * The basis is the residual one the register defaults to, and the top list the default length: a document
@@ -283,6 +385,7 @@ export class ReportsService {
       organisationId,
       requestedByUserId,
       template: executiveDashboard.id,
+      templateVersion: executiveDashboard.version,
       title: `${executiveDashboard.title}: ${settings.name}`,
       assessmentId: null,
       params: {},
@@ -301,6 +404,58 @@ export class ReportsService {
   }
 
   /**
+   * Asks for the Consolidated DPO Report (Phase 9a): the record is written and the job enqueued in one
+   * transaction, and the answer is the PENDING row the client polls. Nothing is rendered here — the period can
+   * cover seven registers, which is more work than a request should hold the connection for.
+   */
+  async requestConsolidatedDpo(dto: GenerateConsolidatedDpoDto): Promise<ReportDto> {
+    const organisationId = this.requestContext.requireOrganisationId();
+    const requestedByUserId = needActor(this.requestContext.actorUserId);
+    const settings = await this.settings.get();
+    const params: ConsolidatedDpoParams = {
+      period: dto.period ?? DEFAULT_DPO_PERIOD,
+      confidential: dto.confidential ?? true,
+    };
+    const reportId = uuidv7();
+
+    const record = await this.uow.run(async (tx) => {
+      const created = await this.reports.createPending(tx, {
+        id: reportId,
+        template: consolidatedDpo.id,
+        templateVersion: consolidatedDpo.version,
+        title: `${consolidatedDpo.title}: ${settings.name}`,
+        assessmentId: null,
+        params: { ...params },
+        requestedByUserId,
+      });
+      // The job and the row commit together: a job for a report nobody asked for, or a report no job will
+      // ever fill, are both states a reader cannot tell apart from slow work.
+      await this.jobs.enqueue(
+        {
+          type: REPORT_JOB_TYPES.generate,
+          payload: { organisationId, reportId },
+          dedupeKey: `report-generate:${reportId}`,
+        },
+        tx,
+      );
+      await this.audit.record(tx, {
+        action: 'report.requested',
+        entityType: 'report',
+        entityId: created.id,
+        entityLabel: created.title,
+        changes: {
+          template: consolidatedDpo.id,
+          templateVersion: consolidatedDpo.version,
+          period: params.period,
+          confidential: params.confidential,
+        },
+      });
+      return created;
+    });
+    return toDto(record);
+  }
+
+  /**
    * Puts the rendered bytes in private storage and writes the record with its snapshot and checksum, in one
    * transaction with the audit row. A failed write removes the file again: an orphaned PDF nobody can name
    * is data left behind.
@@ -310,6 +465,7 @@ export class ReportsService {
     readonly organisationId: string;
     readonly requestedByUserId: string;
     readonly template: string;
+    readonly templateVersion: number;
     readonly title: string;
     readonly assessmentId: string | null;
     readonly params: Record<string, unknown>;
@@ -325,6 +481,7 @@ export class ReportsService {
         const created = await this.reports.create(tx, {
           id: input.reportId,
           template: input.template,
+          templateVersion: input.templateVersion,
           title: input.title,
           assessmentId: input.assessmentId,
           params: input.params,
@@ -351,7 +508,7 @@ export class ReportsService {
     return toDto(record);
   }
 
-  /** The record as stored: what was asked for, when it was ready, and how big the file is. */
+  /** The record as stored: what was asked for, which state it is in, and how big the file is once there is one. */
   async get(id: string): Promise<ReportDto> {
     return this.uow.run(async (tx) => {
       const record = await this.reports.findById(tx, id);
@@ -376,13 +533,17 @@ export class ReportsService {
       });
       return found;
     });
+    // A queued or failed row has no bytes to name, and its record says why; only READY ones do.
+    if (record.status !== 'READY') throw notDownloadable(record.status);
+    const { storageKey, sha256 } = record;
+    if (storageKey === null || sha256 === null) throw bytesMissing();
     // Outside the transaction: a storage read is not database work, and the Neon pooler wants short ones.
-    const data = await this.storage.get(record.storageKey);
+    const data = await this.storage.get(storageKey);
     if (!data) throw bytesMissing();
     return {
       data,
       contentType: PDF_CONTENT_TYPE,
-      sha256: record.sha256,
+      sha256,
       filename: `${record.template.replace(/_/g, '-')}-${record.id}.pdf`,
     };
   }

@@ -9,5 +9,7 @@ import { RisksService } from './risks.service.js';
   imports: [AuditModule],
   controllers: [RisksController],
   providers: [RisksRepository, RisksService],
+  // The Consolidated DPO Report (Phase 9a) reads the register the way a screen does: through this service.
+  exports: [RisksService],
 })
 export class RisksModule {}

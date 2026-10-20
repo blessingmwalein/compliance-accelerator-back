@@ -1248,23 +1248,32 @@ model RemediationTaskEvidence {
 }
 
 /// A generated report: a stored PDF with the parameters, the data snapshot and the versions it was built from,
-/// so it can be reproduced and audited. Generation is synchronous in Phase 5 (rows are READY); the status column
-/// exists for the asynchronous catalogue of Phase 9a.
+/// so it can be reproduced and audited. Phase 9a makes generation a job, so the columns that describe a file
+/// are null until one exists: a PENDING row has no bytes, no key and no checksum, and a zero-filled stand-in
+/// would state a measurement that was never taken. The database check only judges them on a READY row.
 model Report {
-  id                String       @id @default(uuid(7)) @db.Uuid
-  organisationId    String       @map("organisation_id") @db.Uuid
-  template          String
-  title             String
-  assessmentId      String?      @map("assessment_id") @db.Uuid
-  params            Json
-  status            ReportStatus @default(READY)
+  id              String       @id @default(uuid(7)) @db.Uuid
+  organisationId  String       @map("organisation_id") @db.Uuid
+  template        String
+  /// The version of the definition that rendered this document: the same template can print differently later.
+  templateVersion Int          @default(1) @map("template_version")
+  title           String
+  assessmentId    String?      @map("assessment_id") @db.Uuid
+  params          Json
+  status          ReportStatus @default(READY)
   /// The numbers and rows the PDF was drawn from, plus the methodology and band snapshot.
-  dataSnapshot      Json         @map("data_snapshot")
-  storageKey        String       @map("storage_key")
-  sha256            String
-  size              Int
-  requestedByUserId String       @map("requested_by_user_id") @db.Uuid
-  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  dataSnapshot    Json?        @map("data_snapshot")
+  storageKey      String?      @map("storage_key")
+  sha256          String?
+  size            Int?
+  /// When the document became readable, or when the job gave up. Null while the work is still queued.
+  finishedAt      DateTime?    @map("finished_at") @db.Timestamptz
+  /// A stable code, so a client can say what went wrong without reading a sentence.
+  errorCode       String?      @map("error_code")
+  errorDetail     String?      @map("error_detail")
+  requestedByUserId String     @map("requested_by_user_id") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   assessment   Assessment?  @relation(fields: [organisationId, assessmentId], references: [organisationId, id], onDelete: Restrict)

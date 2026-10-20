@@ -9,5 +9,7 @@ import { LawfulBasisService } from './lawful-basis.service.js';
   imports: [AuditModule],
   controllers: [LawfulBasisController],
   providers: [LawfulBasisRepository, LawfulBasisService],
+  // The Consolidated DPO Report (Phase 9a) reads the register the way a screen does: through this service.
+  exports: [LawfulBasisService],
 })
 export class LawfulBasisModule {}

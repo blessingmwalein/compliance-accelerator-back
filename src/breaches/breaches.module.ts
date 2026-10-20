@@ -27,5 +27,7 @@ import { BreachesService } from './breaches.service.js';
     BreachAssessmentDueAlertHandler,
     BreachNotificationDueAlertHandler,
   ],
+  // The Consolidated DPO Report (Phase 9a) reads the registry the way a screen does: through this service.
+  exports: [BreachesService],
 })
 export class BreachesModule {}

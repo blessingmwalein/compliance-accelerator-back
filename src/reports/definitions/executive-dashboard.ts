@@ -15,6 +15,7 @@ import {
   type PdfBlock,
   type PdfDocument,
 } from '../pdf-document.js';
+import type { ReportTemplateDefinition } from './registry.js';
 
 /**
  * The Executive Dashboard PDF (Phase 8): the one-page summary an executive asks for.
@@ -48,7 +49,11 @@ export const executiveDashboard = {
   id: 'executive_dashboard',
   version: 1,
   title: 'Executive Dashboard',
-} as const;
+  description:
+    "The organisation's position as of the day it is drawn: maturity, exposure, framework coverage, gaps and the highest-exposure risks.",
+  generate: 'sync',
+  params: [],
+} as const satisfies ReportTemplateDefinition;
 
 const NOT_ASSESSED = 'Not assessed';
 

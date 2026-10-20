@@ -17,5 +17,7 @@ import { DsarService } from './dsar.service.js';
   imports: [AuditModule, AlertsModule, DeadlinePolicyModule],
   controllers: [DsarController],
   providers: [DsarRepository, DsarService, DsarDueSoonAlertHandler, DsarOverdueAlertHandler],
+  // The Consolidated DPO Report (Phase 9a) reads the tracker the way a screen does: through this service.
+  exports: [DsarService],
 })
 export class DsarModule {}
