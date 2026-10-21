@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
+import { AppException, ErrorCode } from '../common/errors/app.exception.js';
 import type { Tx } from '../database/db-client.js';
 import { TenantRepository } from '../database/tenant-repository.js';
+import type { ClassificationTier, DataPosture } from '../domain/registers/records.js';
 import { RequestContext } from '../tenancy/request-context.js';
 
 /** A classification level with its owner's name, as the API shows it. */
@@ -10,6 +12,13 @@ export interface LevelRecord {
   rank: number;
   description: string | null;
   handlingGuidance: string | null;
+  /** The reference tier it is graded at; null says nobody tagged it. */
+  tier: ClassificationTier | null;
+  /** How exposed data at this level is, as the organisation states it. */
+  posture: DataPosture | null;
+  /** How long data at this level is kept, in words. */
+  retentionPeriod: string | null;
+  encryptionRequired: boolean;
   ownerMembershipId: string | null;
   /** Joined for the display name the list shows (never stored on the row). */
   owner: { user: { fullName: string } } | null;
@@ -26,6 +35,10 @@ export interface LevelFields {
   rank: number;
   description: string | null;
   handlingGuidance: string | null;
+  tier: ClassificationTier | null;
+  posture: DataPosture | null;
+  retentionPeriod: string | null;
+  encryptionRequired: boolean;
   ownerMembershipId: string | null;
   lastReviewDate: Date | null;
   nextReviewDate: Date | null;
@@ -37,6 +50,10 @@ const SELECT = {
   rank: true,
   description: true,
   handlingGuidance: true,
+  tier: true,
+  posture: true,
+  retentionPeriod: true,
+  encryptionRequired: true,
   ownerMembershipId: true,
   lastReviewDate: true,
   nextReviewDate: true,
@@ -57,13 +74,20 @@ export class ClassificationRepository extends TenantRepository {
 
   list(
     tx: Tx,
-    options: { limit: number; after?: string; includeArchived: boolean; q?: string },
+    options: {
+      limit: number;
+      after?: string;
+      includeArchived: boolean;
+      q?: string;
+      tier?: ClassificationTier;
+    },
   ): Promise<LevelRecord[]> {
     return tx.classificationLevel.findMany({
       where: {
         organisationId: this.organisationId,
         ...(options.includeArchived ? {} : { archivedAt: null }),
         ...(options.after ? { id: { gt: options.after } } : {}),
+        ...(options.tier ? { tier: options.tier } : {}),
         ...(options.q
           ? {
               OR: [
@@ -76,6 +100,20 @@ export class ClassificationRepository extends TenantRepository {
       orderBy: { id: 'asc' },
       take: options.limit + 1,
       select: SELECT,
+    });
+  }
+
+  /**
+   * Every LIVE level, with only what the coverage figures count. A rank bounds a scheme at twenty levels,
+   * so this reads the whole register rather than one page of it, and the counting is the service's job.
+   */
+  liveCoverageRows(
+    tx: Tx,
+  ): Promise<{ tier: ClassificationTier | null; posture: DataPosture | null }[]> {
+    return tx.classificationLevel.findMany({
+      where: { organisationId: this.organisationId, archivedAt: null },
+      orderBy: { rank: 'asc' },
+      select: { tier: true, posture: true },
     });
   }
 
@@ -140,6 +178,18 @@ export class ClassificationRepository extends TenantRepository {
       where: { id: membershipId, organisationId: this.organisationId, status: 'ACTIVE' },
     });
     return count === 1;
+  }
+
+  /** The organisation's row, for the time zone the day a summary was counted against is decided in. */
+  async timezone(tx: Tx): Promise<string> {
+    const row = await tx.organisation.findUnique({
+      where: { id: this.organisationId },
+      select: { timezone: true },
+    });
+    if (!row) {
+      throw new AppException(ErrorCode.NotFound, HttpStatus.NOT_FOUND, 'Organisation not found.');
+    }
+    return row.timezone;
   }
 
   create(tx: Tx, data: LevelFields): Promise<LevelRecord> {

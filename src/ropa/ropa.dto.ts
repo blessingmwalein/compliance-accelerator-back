@@ -163,6 +163,41 @@ export class ListRopaActivitiesQueryDto extends PageQueryDto {
   q?: string;
 }
 
+/** How many activities needing a review one monitor response can carry. */
+export const NEEDS_REVIEW_LIST_MAX = 50;
+
+/** How many live activities one business unit holds. */
+export class RopaUnitCountDto {
+  /** `null` for the group of activities nobody has assigned to a unit. */
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  businessUnitId!: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  businessUnitName!: string | null;
+  activities!: number;
+}
+
+/**
+ * One activity whose review is overdue or due soon. A row with no approved due date is `not_reviewed`, so it
+ * is an open question rather than a review to chase and never appears here.
+ */
+export class RopaReviewItemDto {
+  id!: string;
+  name!: string;
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  businessUnitId!: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  businessUnitName!: string | null;
+  @ApiProperty({ type: String, format: 'date', nullable: true })
+  lastReviewDate!: string | null;
+  @ApiProperty({ type: String, format: 'date' })
+  nextReviewDate!: string;
+  /** `overdue` or `due_soon`: the two states that mean somebody should look at it now. */
+  @ApiProperty({ enum: REVIEW_STATES, enumName: 'ReviewState' })
+  reviewState!: (typeof REVIEW_STATES)[number];
+  /** Whole days until the due date (negative = past due). Never null: a listed row has a due date. */
+  daysRemaining!: number;
+}
+
 /** The monitor: how much of the register needs a review, decided on the server in the organisation's zone. */
 export class RopaMonitorDto {
   /**
@@ -193,6 +228,23 @@ export class RopaMonitorDto {
   linkedToClassification!: number;
   /** Live activities with neither: the register lists them, but nothing else knows about them. */
   unlinked!: number;
+
+  /** Live activities grouped by business unit, largest group first; the `null` unit is the unassigned one. */
+  @ApiProperty({ type: [RopaUnitCountDto] })
+  byBusinessUnit!: RopaUnitCountDto[];
+
+  /**
+   * The activities needing review, most overdue first, at most `needsReviewLimit` of them. The counts above
+   * cover every live row; this list is the part a screen can show.
+   */
+  @ApiProperty({ type: [RopaReviewItemDto] })
+  needsReview!: RopaReviewItemDto[];
+
+  /** How many activities the monitor can hold in one response. */
+  needsReviewLimit!: number;
+
+  /** True when more activities need a review than the list below carries. */
+  needsReviewTruncated!: boolean;
 }
 
 export class CreateRopaActivityDto {

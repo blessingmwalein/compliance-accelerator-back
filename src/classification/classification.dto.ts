@@ -3,6 +3,7 @@ import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsDateString,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -15,6 +16,12 @@ import {
 } from 'class-validator';
 import { PageQueryDto } from '../common/pagination.js';
 import { OptionalOrNull, TrimText, TrimToNull } from '../common/validators/nullable.js';
+import {
+  CLASSIFICATION_TIERS,
+  DATA_POSTURES,
+  type ClassificationTier,
+  type DataPosture,
+} from '../domain/registers/records.js';
 
 /** A calendar date (`YYYY-MM-DD`): stored in a DATE column, judged in the organisation's time zone. */
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
@@ -40,6 +47,26 @@ export class ClassificationLevelDto {
 
   /** How data at this level is to be handled (encryption, sharing, marking). Free text, never legal advice. */
   handlingGuidance!: string | null;
+
+  /**
+   * The reference tier this level is graded at, or null when nobody tagged it. The organisation's own word
+   * for the level stays in `name`; the tier is the fixed vocabulary the register filters and counts on.
+   */
+  @ApiProperty({ enum: CLASSIFICATION_TIERS, enumName: 'ClassificationTier', nullable: true })
+  tier!: ClassificationTier | null;
+
+  /**
+   * How exposed data at this level is, as the organisation states it. Never derived from the tier, and
+   * never inferred when it is absent.
+   */
+  @ApiProperty({ enum: DATA_POSTURES, enumName: 'DataPosture', nullable: true })
+  posture!: DataPosture | null;
+
+  /** How long data at this level is kept, in words. The rule itself lives in the retention register. */
+  retentionPeriod!: string | null;
+
+  /** A control stated for this level by the organisation, not one the platform has verified. */
+  encryptionRequired!: boolean;
 
   /** The membership id of the member who owns this level, if set. */
   ownerMembershipId!: string | null;
@@ -87,6 +114,36 @@ export class ClassificationLevelListQueryDto extends PageQueryDto {
   @IsString()
   @MaxLength(80)
   q?: string;
+
+  /** Only levels tagged at this reference tier. Untagged levels match no tier. */
+  @ApiPropertyOptional({ enum: CLASSIFICATION_TIERS, enumName: 'ClassificationTier' })
+  @IsOptional()
+  @IsIn(CLASSIFICATION_TIERS)
+  tier?: ClassificationTier;
+}
+
+/**
+ * How much of the scheme the reference app's four cards ask about, counted over every live level rather
+ * than over one page of the list.
+ */
+export class ClassificationSummaryDto {
+  /** `no_scheme`: the organisation has no levels at all. `ok`: the counts below are real. */
+  @ApiProperty({
+    enum: ['ok', 'no_scheme'],
+    enumName: 'ClassificationSummaryAvailability',
+  })
+  availability!: 'ok' | 'no_scheme';
+
+  /** Today in the organisation's time zone: the day the counts were decided against. */
+  asOf!: string;
+
+  /** Live (non-archived) levels in the scheme. */
+  total!: number;
+  /** Live levels tagged RESTRICTED. A level nobody tagged counts towards none of the tiers. */
+  restricted!: number;
+  confidential!: number;
+  /** Live levels whose stated posture is HIGH or CRITICAL. */
+  highExposure!: number;
 }
 
 export class CreateClassificationLevelDto {
@@ -118,6 +175,32 @@ export class CreateClassificationLevelDto {
   @IsString()
   @MaxLength(2000)
   handlingGuidance?: string | null;
+
+  /** The reference tier to grade this level at. Omit to leave it untagged. */
+  @ApiPropertyOptional({ enum: CLASSIFICATION_TIERS, enumName: 'ClassificationTier' })
+  @IsOptional()
+  @IsIn(CLASSIFICATION_TIERS)
+  tier?: ClassificationTier;
+
+  /** How exposed data at this level is. Omit to leave the posture unstated. */
+  @ApiPropertyOptional({ enum: DATA_POSTURES, enumName: 'DataPosture' })
+  @IsOptional()
+  @IsIn(DATA_POSTURES)
+  posture?: DataPosture;
+
+  /** How long data at this level is kept, in words. */
+  @TrimToNull()
+  @OptionalOrNull()
+  @IsString()
+  @MaxLength(2000)
+  retentionPeriod?: string | null;
+
+  /** Default false: a level nobody has assessed does not claim that encryption is required at it. */
+  @ApiPropertyOptional({ type: Boolean, default: false })
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean()
+  encryptionRequired?: boolean;
 
   /** The membership id of an ACTIVE member who owns the level. */
   @OptionalOrNull()
@@ -162,6 +245,36 @@ export class UpdateClassificationLevelDto {
   @IsString()
   @MaxLength(2000)
   handlingGuidance?: string | null;
+
+  /** The reference tier to grade this level at. `null` clears the tag: the level goes back to untagged. */
+  @ApiPropertyOptional({
+    enum: CLASSIFICATION_TIERS,
+    enumName: 'ClassificationTier',
+    nullable: true,
+  })
+  @OptionalOrNull()
+  @IsIn(CLASSIFICATION_TIERS)
+  tier?: ClassificationTier | null;
+
+  /** How exposed data at this level is. `null` leaves the posture unstated again. */
+  @ApiPropertyOptional({ enum: DATA_POSTURES, enumName: 'DataPosture', nullable: true })
+  @OptionalOrNull()
+  @IsIn(DATA_POSTURES)
+  posture?: DataPosture | null;
+
+  /** How long data at this level is kept, in words. */
+  @TrimToNull()
+  @OptionalOrNull()
+  @IsString()
+  @MaxLength(2000)
+  retentionPeriod?: string | null;
+
+  /** Default false: a level nobody has assessed does not claim that encryption is required at it. */
+  @ApiPropertyOptional({ type: Boolean, default: false })
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean()
+  encryptionRequired?: boolean;
 
   @OptionalOrNull()
   @IsUUID()

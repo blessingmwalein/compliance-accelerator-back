@@ -5,6 +5,44 @@ The HTTP contract is `contracts/openapi.json` (`info.version` = `CONTRACT_VERSIO
 Record every bump here in the same commit that regenerates the document (`npm run openapi:export`).
 The frontend pins a contract version in its own repository (`contract/CONTRACT_VERSION`).
 
+## 0.14.0 - The three dashboard watch sections are stated by the server rather than drawn from guesses (additive)
+
+The dashboard screen of the sample product leads with a RoPA bar chart and a review list, names items inside each priority quadrant, and plots maturity per governance area per framework. The endpoints behind those three sections answered counts only, so a client could have drawn them in exactly one honest way: by inventing the missing rows. This bump gives each section its data instead. **No migration** — every field below is rolled from columns that already exist. The path count stays 157 and no operation is added; 3 existing operations **gained required fields** and 4 new schemas join the document (`RopaUnitCountDto`, `RopaReviewItemDto`, `PriorityQuadrantItemDto`, `FrameworkAreaMaturityDto`).
+
+| Method | Path | operationId | Access | Notes |
+|---|---|---|---|---|
+| — | `GET …/ropa/monitor` | `getRopaMonitor` | `data.view` | `byBusinessUnit` (`{ businessUnitId, businessUnitName, activities }`, largest group first, the `null` unit being the unassigned one), `needsReview` (`{ id, name, businessUnitId, businessUnitName, lastReviewDate, nextReviewDate, reviewState, daysRemaining }`, most overdue first), `needsReviewLimit`, `needsReviewTruncated` |
+| — | `GET …/priority-matrix` | `getPriorityMatrix` | `governance.view` | each quadrant gains `sampleItems` (`{ assessmentItemId, subject }`, at most 3) and `sampleItemsLimit`. `subject` is the same one line the item list shows |
+| — | `GET …/dashboard/frameworks` | `getDashboardFrameworks` | `dashboard.view` | each framework gains `byArea`: this framework's subjects rolled per governance area — `{ areaId, areaName, inScope, rated, current, target, gap, availability }`, biggest mean gap first |
+
+Behaviour that is not visible in the schema:
+
+- **A list the server orders is a list that reads the same on every screen.** `needsReview` is sorted by `daysRemaining` then id and cut at 50 rows; `byBusinessUnit` is sorted by count with first-seen order breaking a tie; `byArea` keeps the same order the gap-analysis rows already use. A client that sorts again, or sorts differently, is the disagreement this avoids.
+- **`needsReview` is a display window, never a re-count.** `total`, `overdue`, `dueSoon`, `onTrack` and `notReviewed` still cover every live activity, and `needsReviewTruncated` is the only signal that more rows exist than the list carries. The states that need attention always have a due date, so `nextReviewDate` and `daysRemaining` are non-null here while the same fields stay nullable on an activity row.
+- **`sampleItems` names the count, it does not replace it.** The three items are the oldest the scan reaches (ids are UUIDv7), taken from the same single scan the counts come from and read back through one batched item query, so a matrix with ten thousand items still costs one pass. `count` remains the whole truth and `count - sampleItems.length` is the "+N more" a card prints.
+- **`byArea` is the framework total, split.** Each row is `maturityRoll` over that framework's own subjects under one area, so the radar's points, the table's cells and the framework's own bar are four views of one roll rather than three computations of it. A subject with no governance area is not dropped and not guessed at: it appears once, named `Not filed under a governance area`.
+- **No area name is ever matched against a title.** The sample derives its per-area framework scores by testing whether an area name appears as a substring of an assessment title, which invents a link the data does not hold and silently reports zero for an area nobody named. Every number in this payload comes from a relation the row already carries.
+
+## 0.13.0 - The classification register grades a category at a tier and states its exposure (additive)
+
+The Data Classification page of the sample product shows a category, the tier it is graded at, how exposed it is, how long it is kept, who owns it and whether it is encrypted. The API held a level's name, rank, guidance, owner and review dates and nothing else, so four of those seven columns had no source. 156 paths become 157 (1 new operation, 4 new schemas), and `ClassificationLevelDto` **gained four required fields** (`tier`, `posture`, `retentionPeriod`, `encryptionRequired`) — a client reading a level now always gets all four, and `null` is the answer that means nobody said.
+
+**These fields need migration `20261020120000_classification_tier_and_posture`** (the `ClassificationTier` and `DataPosture` enum types, the four columns on `classification_levels`, and the table's stored `CHECK` re-created with the `retention_period` bound), which is not applied until the owner applies it. Until then every classification route — the list included — fails, because the columns it selects do not exist yet.
+
+| Method | Path | operationId | Access | Notes |
+|---|---|---|---|---|
+| GET | `…/classification-levels/summary` | `getClassificationSummary` | `data.view` | `{ availability, asOf, total, restricted, confidential, highExposure }` counted over **every live level**, because the page is a cursor page of a scheme that may be longer. `availability` is `no_scheme` when the organisation has no levels at all — an absent scheme is not a scheme of zeroes |
+| — | `GET …/classification-levels?tier=` | `listClassificationLevels` | `data.view` | one more filter, taking a `ClassificationTier`; it composes with `q` and `includeArchived`. Levels with no tier match no tier |
+| — | `ClassificationLevelDto` | — | — | `tier: ClassificationTier \| null` (`PUBLIC` \| `INTERNAL` \| `CONFIDENTIAL` \| `RESTRICTED`), `posture: DataPosture \| null` (`LOW` \| `MEDIUM` \| `HIGH` \| `CRITICAL`), `retentionPeriod: string \| null` (in words; the rule itself stays in the retention register), `encryptionRequired: boolean` |
+| — | `CreateClassificationLevelDto` · `UpdateClassificationLevelDto` | — | — | the same four, all optional. On a PATCH an absent field leaves the tag alone and a `null` clears it, so "we never said" stays sayable |
+
+Behaviour that is not visible in the schema:
+
+- **A tier is a tag beside the scheme, not a replacement for it.** `name` is still the organisation's own word for the level and `rank` still orders it, so a scheme of five levels is a scheme of five levels and one of them can be called "Amber" while tagged `CONFIDENTIAL`. Nothing is seeded: an organisation that has not tagged anything reads back `tier: null` everywhere, and the page shows untagged rather than guessing from the name.
+- **The three counts are not a partition of `total`.** `restricted` and `confidential` count tags, `highExposure` counts a stated posture of `HIGH` or `CRITICAL`, and one level can be in none of them, one of them, or two. They are the four cards the reference app shows and nothing more, which is why they are not presented as a breakdown.
+- **`posture` is never derived from `tier`, and `encryptionRequired` is a claim, not a check.** A `RESTRICTED` level with no posture has no posture; a level that says encryption is required has said so, and the platform has not verified that anyone does. Both are stated by a person and audited as stated.
+- **No report template came with this.** The sample's classification page has no Export PDF button, and the scheme already prints inside the Consolidated DPO Report; a document nobody asked for is not a reason to add one.
+
 ## 0.12.0 - The RoPA register states its lawful basis, counts its links, and prints itself (additive)
 
 The register page of the sample product answers three questions the API could not: which lawful basis justifies this activity, how many activities are traceable to a basis or a data classification, and what the register looks like as a document. **No migration** — `lawful_basis_record.processing_activity_id` has existed since Phase 6, and an activity's bases were already readable from the lawful-basis register; what was missing was the other direction. 153 paths become 156 (3 new operations, 2 new schemas, one enum widened), and three existing schemas **gained required or optional fields**: `RopaActivityDto` now always carries `lawfulBasisRecords` (an empty array means none has been stated), `RopaMonitorDto` gains `linkedToLawfulBasis`, `linkedToClassification` and `unlinked`, and `CreateRopaActivityDto` gains the optional `lawfulBasis`.

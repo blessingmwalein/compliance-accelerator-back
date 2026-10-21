@@ -95,6 +95,16 @@ export class PriorityScalesDto {
   riskLevels!: PriorityRiskLevelDto[];
 }
 
+/** How many items one quadrant names in the matrix. */
+export const QUADRANT_SAMPLE_ITEMS_MAX = 3;
+
+/** One assessment item shown inside a quadrant card: enough to say what the count is about. */
+export class PriorityQuadrantItemDto {
+  assessmentItemId!: string;
+  /** What the item is about, as one line: the area name and the requirement identifier. */
+  subject!: string;
+}
+
 /** One quadrant: what it means, how it is scheduled and how many items are in it right now. */
 export class PriorityQuadrantDto {
   @ApiProperty({ enum: PRIORITY_QUADRANTS, enumName: 'PriorityQuadrant' })
@@ -105,6 +115,14 @@ export class PriorityQuadrantDto {
   defaultScheduling!: string;
   /** Items whose derived quadrant is this one (counts from the saved answers, never a stored label). */
   count!: number;
+  /**
+   * Up to `sampleItemsLimit` of those items, oldest first. A quadrant with more than this many is shown as
+   * "+N more"; the count above stays the whole truth.
+   */
+  @ApiProperty({ type: [PriorityQuadrantItemDto] })
+  sampleItems!: PriorityQuadrantItemDto[];
+  /** How many items one quadrant can name. */
+  sampleItemsLimit!: number;
 }
 
 /** The Plan window: how far ahead work in the PLAN quadrant is scheduled. */

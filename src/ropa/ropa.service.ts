@@ -16,6 +16,7 @@ import {
   type ReviewState,
 } from '../domain/registers/review.js';
 import { RequestContext } from '../tenancy/request-context.js';
+import { NEEDS_REVIEW_LIST_MAX } from './ropa.dto.js';
 import type {
   CreateRopaActivityDto,
   LinkRopaLawfulBasisDto,
@@ -425,23 +426,64 @@ export class RopaService {
           linkedToLawfulBasis: 0,
           linkedToClassification: 0,
           unlinked: 0,
+          byBusinessUnit: [],
+          needsReview: [],
+          needsReviewLimit: NEEDS_REVIEW_LIST_MAX,
+          needsReviewTruncated: false,
         };
       }
-      const counts = new Map<ReviewState, number>();
-      for (const row of rows) {
-        const { state } = reviewViewOf(
+      const views = rows.map((row) => ({
+        row,
+        view: reviewViewOf(
           toDateOnly(row.nextReviewDate),
           toDateOnly(row.lastReviewDate),
           today,
           row.reviewLeadDays ?? REVIEW_LEAD_DAYS,
-        );
-        counts.set(state, (counts.get(state) ?? 0) + 1);
+        ),
+      }));
+      const counts = new Map<ReviewState, number>();
+      for (const { view } of views) {
+        counts.set(view.state, (counts.get(view.state) ?? 0) + 1);
       }
       const overdue = counts.get('overdue') ?? 0;
       const dueSoon = counts.get('due_soon') ?? 0;
       const notReviewed = counts.get('not_reviewed') ?? 0;
       const hasBasis = (row: ActivityRecord) => row.lawfulBasis.length > 0;
       const hasClass = (row: ActivityRecord) => row.classificationLevelId !== null;
+
+      const units = new Map<string | null, { name: string | null; activities: number }>();
+      for (const { row } of views) {
+        const group = units.get(row.businessUnitId);
+        if (group) group.activities += 1;
+        else
+          units.set(row.businessUnitId, {
+            name: row.businessUnitName,
+            activities: 1,
+          });
+      }
+
+      // a state that needs attention always has both a due date and a count against it, so a row whose date
+      // is absent (not_reviewed, ok) falls out here instead of being asserted away further down
+      const needing = views.flatMap(({ row, view }) => {
+        if (view.state !== 'overdue' && view.state !== 'due_soon') return [];
+        if (view.nextReviewDate === null || view.daysRemaining === null) return [];
+        return [
+          {
+            row,
+            state: view.state,
+            nextReviewDate: view.nextReviewDate,
+            lastReviewDate: view.lastReviewDate,
+            daysRemaining: view.daysRemaining,
+          },
+        ];
+      });
+      // most overdue first, and the id breaks a tie so the list does not shuffle between two reads
+      const ordered = needing.sort(
+        (left, right) =>
+          left.daysRemaining - right.daysRemaining || left.row.id.localeCompare(right.row.id),
+      );
+      const list = ordered.slice(0, NEEDS_REVIEW_LIST_MAX);
+
       return {
         // with no approved due date anywhere there is nothing to monitor: the register is not configured yet
         availability: notReviewed === rows.length ? ('not_configured' as const) : ('ok' as const),
@@ -455,6 +497,26 @@ export class RopaService {
         linkedToLawfulBasis: rows.filter(hasBasis).length,
         linkedToClassification: rows.filter(hasClass).length,
         unlinked: rows.filter((row) => !hasBasis(row) && !hasClass(row)).length,
+        // largest unit first so a bar chart reads without a client-side sort; an unassigned group is one bar
+        byBusinessUnit: [...units.entries()]
+          .map(([businessUnitId, group]) => ({
+            businessUnitId,
+            businessUnitName: group.name,
+            activities: group.activities,
+          }))
+          .sort((left, right) => right.activities - left.activities),
+        needsReview: list.map((item) => ({
+          id: item.row.id,
+          name: item.row.name,
+          businessUnitId: item.row.businessUnitId,
+          businessUnitName: item.row.businessUnitName,
+          lastReviewDate: item.lastReviewDate,
+          nextReviewDate: item.nextReviewDate,
+          reviewState: item.state,
+          daysRemaining: item.daysRemaining,
+        })),
+        needsReviewLimit: NEEDS_REVIEW_LIST_MAX,
+        needsReviewTruncated: ordered.length > list.length,
       };
     });
   }

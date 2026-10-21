@@ -145,6 +145,27 @@ export class FrameworkVersionRefDto {
   status!: string;
 }
 
+/**
+ * One framework measured inside one governance area. The sample's radar and the area table plot these, so
+ * every point is a number the server rolled rather than a name a client guessed at.
+ */
+export class FrameworkAreaMaturityDto {
+  /** Null for subjects not filed under a governance area; `areaName` says that in words. */
+  @ApiProperty({ type: String, nullable: true })
+  areaId!: string | null;
+  areaName!: string;
+  /** Subjects of this framework under this area in the organisation's current answers. */
+  inScope!: number;
+  /** Of those, how many carry a current maturity. */
+  rated!: number;
+  current!: MeasuredDto;
+  target!: MeasuredDto;
+  gap!: MeasuredDto;
+  /** `not_assessed`: nothing of this framework under this area carries a maturity level. */
+  @ApiProperty({ enum: ['ok', 'not_assessed'], enumName: 'FrameworkCoverageAvailability' })
+  availability!: 'ok' | 'not_assessed';
+}
+
 /** One applicable framework: how big it is, what has been rated of it, and what is still owed. */
 export class FrameworkCoverageDto {
   frameworkId!: string;
@@ -178,6 +199,9 @@ export class FrameworkCoverageDto {
   availability!: 'ok' | 'not_assessed';
   @ApiProperty({ enum: DASHBOARD_STATUSES, nullable: true })
   status!: DashboardStatusValue | null;
+  /** This framework's maturity inside each governance area it is rated in, biggest gap first. */
+  @ApiProperty({ type: [FrameworkAreaMaturityDto] })
+  byArea!: FrameworkAreaMaturityDto[];
 }
 
 /** `GET …/dashboard/frameworks`: the comparison bar, the radar, the table and the compliance cards read this. */

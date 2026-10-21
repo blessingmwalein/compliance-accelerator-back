@@ -24,6 +24,7 @@ import type {
   DashboardGapAnalysisDto,
   DashboardSummaryDto,
   DashboardTopRisksDto,
+  FrameworkAreaMaturityDto,
   GapAnalysisRowDto,
   TopRisksQueryDto,
 } from './dashboard.dto.js';
@@ -200,6 +201,7 @@ export class DashboardService {
             outstandingFindings: openTasks.get(frame.id) ?? 0,
             availability: roll.availability,
             status: roll.status,
+            byArea: areaRowsOf(own),
           };
         }),
         message: null,
@@ -212,19 +214,7 @@ export class DashboardService {
   async gapAnalysis(): Promise<DashboardGapAnalysisDto> {
     return this.uow.run(async (tx) => {
       const context = await this.context(tx);
-      const groups = new Map<
-        string | null,
-        { name: string | null; items: (DashboardItemRow & EligibleItem)[] }
-      >();
-      for (const item of context.eligible) {
-        const held = groups.get(item.governanceAreaId);
-        if (held) {
-          held.items.push(item);
-          if (held.name === null) held.name = item.governanceAreaName;
-          continue;
-        }
-        groups.set(item.governanceAreaId, { name: item.governanceAreaName, items: [item] });
-      }
+      const groups = groupsByArea(context.eligible);
 
       const rows = [...groups.entries()].map(([areaId, group]): GapAnalysisRowDto => {
         const roll = maturityRoll(group.items);
@@ -336,6 +326,48 @@ export class DashboardService {
   }
 }
 
+/** The subjects of one read, grouped under the governance area they are filed in. */
+const groupsByArea = (
+  items: (DashboardItemRow & EligibleItem)[],
+): Map<string | null, { name: string | null; items: (DashboardItemRow & EligibleItem)[] }> => {
+  const groups = new Map<
+    string | null,
+    { name: string | null; items: (DashboardItemRow & EligibleItem)[] }
+  >();
+  for (const item of items) {
+    const held = groups.get(item.governanceAreaId);
+    if (held) {
+      held.items.push(item);
+      if (held.name === null) held.name = item.governanceAreaName;
+      continue;
+    }
+    groups.set(item.governanceAreaId, { name: item.governanceAreaName, items: [item] });
+  }
+  return groups;
+};
+
+/**
+ * One framework's own subjects, rolled per governance area with the same `maturityRoll` that rolls the
+ * framework total. A radar and a table drawn over these cannot disagree with the bar beside them.
+ */
+const areaRowsOf = (items: (DashboardItemRow & EligibleItem)[]): FrameworkAreaMaturityDto[] => {
+  const rows = [...groupsByArea(items).entries()].map(([areaId, group]) => {
+    const roll = maturityRoll(group.items);
+    return {
+      areaId,
+      areaName: areaId === null ? UNFILED_AREA_NAME : (group.name ?? UNFILED_AREA_NAME),
+      inScope: roll.applicable,
+      rated: roll.current.assessed,
+      current: roll.current,
+      target: roll.target,
+      gap: roll.gap,
+      availability: roll.availability,
+    };
+  });
+  rows.sort(compareAreaRows);
+  return rows;
+};
+
 /** The pair of factors and the stored score and level of the basis the caller chose. */
 const figuresOf = (risk: TopRiskRow, basis: 'residual' | 'inherent'): BasisFigures =>
   basis === 'inherent'
@@ -363,6 +395,16 @@ function compareGapRows(a: GapAnalysisRowDto, b: GapAnalysisRowDto): number {
     if (a.exposure.value === null) return 1;
     if (b.exposure.value === null) return -1;
     return b.exposure.value - a.exposure.value;
+  }
+  return a.areaName.localeCompare(b.areaName);
+}
+
+/** Biggest mean gap first, then the name: the same order the gap analysis rows keep, without exposure. */
+function compareAreaRows(a: FrameworkAreaMaturityDto, b: FrameworkAreaMaturityDto): number {
+  if (a.gap.value !== b.gap.value) {
+    if (a.gap.value === null) return 1;
+    if (b.gap.value === null) return -1;
+    return b.gap.value - a.gap.value;
   }
   return a.areaName.localeCompare(b.areaName);
 }

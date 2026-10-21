@@ -4,6 +4,21 @@
  * these, and a value written is checked here first, so an unknown literal is a compile error.
  */
 
+/**
+ * The four reference tiers a data category is graded at. The scheme's own levels stay the organisation's
+ * (their names are free text); a tier is the fixed vocabulary the register filters and counts on, so a
+ * category called "Credit Reports" can say it is RESTRICTED without a page guessing from its name.
+ */
+export const CLASSIFICATION_TIERS = ['PUBLIC', 'INTERNAL', 'CONFIDENTIAL', 'RESTRICTED'] as const;
+export type ClassificationTier = (typeof CLASSIFICATION_TIERS)[number];
+
+/**
+ * How exposed the data at a level is, as the organisation states it. `HIGH` and `CRITICAL` are the two the
+ * register counts as high exposure.
+ */
+export const DATA_POSTURES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
+export type DataPosture = (typeof DATA_POSTURES)[number];
+
 /** A processing activity: drafted, in force, or archived (archive is a status, not a second flag). */
 export const ROPA_STATUSES = ['DRAFT', 'ACTIVE', 'ARCHIVED'] as const;
 export type RopaActivityStatus = (typeof ROPA_STATUSES)[number];

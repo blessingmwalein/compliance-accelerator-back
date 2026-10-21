@@ -47,6 +47,7 @@ import type {
   QuadrantFilterValue,
   SaveItemPriorityDto,
 } from './priorities.dto.js';
+import { QUADRANT_SAMPLE_ITEMS_MAX } from './priorities.dto.js';
 import {
   PrioritiesRepository,
   type PriorityCandidate,
@@ -214,17 +215,26 @@ export class PrioritiesService {
     const scan = await this.uow.run(async (tx) => {
       const rows = await this.resolve(tx, {}, () => true, null);
       const counts = new Map<Quadrant, number>(QUADRANTS.map((quadrant) => [quadrant, 0]));
+      // the first items the scan reaches in each quadrant, oldest first — the names a card can show
+      const named = new Map<Quadrant, string[]>(QUADRANTS.map((quadrant) => [quadrant, []]));
       let unclassified = 0;
       let withoutQuestionnaire = 0;
       for (const row of rows.items) {
         const quadrant = row.effective.quadrant;
-        if (quadrant) counts.set(quadrant, (counts.get(quadrant) ?? 0) + 1);
-        else unclassified += 1;
+        if (quadrant) {
+          counts.set(quadrant, (counts.get(quadrant) ?? 0) + 1);
+          const ids = named.get(quadrant);
+          if (ids && ids.length < QUADRANT_SAMPLE_ITEMS_MAX) ids.push(row.itemId);
+        } else unclassified += 1;
         if (row.unanswered) withoutQuestionnaire += 1;
       }
       const window = windowOf(await this.scoring.policyInForce(tx));
+      const items = await this.priorities.findItems(tx, [...named.values()].flat());
+      const subjectById = new Map(items.map((item) => [item.id, subjectOf(item)]));
       return {
         counts,
+        named,
+        subjectById,
         unclassified,
         withoutQuestionnaire,
         totalItems: rows.items.length,
@@ -240,6 +250,12 @@ export class PrioritiesService {
         purpose: QUADRANT_INFO[quadrant].purpose,
         defaultScheduling: QUADRANT_INFO[quadrant].defaultScheduling,
         count: scan.counts.get(quadrant) ?? 0,
+        // an id the item scan offered but the item read did not return is gone, so it is not named
+        sampleItems: (scan.named.get(quadrant) ?? []).flatMap((id) => {
+          const subject = scan.subjectById.get(id);
+          return subject === undefined ? [] : [{ assessmentItemId: id, subject }];
+        }),
+        sampleItemsLimit: QUADRANT_SAMPLE_ITEMS_MAX,
       })),
       unclassified: scan.unclassified,
       withoutQuestionnaire: scan.withoutQuestionnaire,

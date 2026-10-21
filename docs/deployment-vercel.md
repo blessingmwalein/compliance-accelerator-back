@@ -99,7 +99,7 @@ closes it.
 ```bash
 curl -s https://<api-host>/api/v1/health          # 200, { "status": "ok" }
 curl -s https://<api-host>/api/v1/health/ready    # 200 with a live database, 503 + DATABASE_* otherwise
-curl -s https://<api-host>/api/v1/meta            # contractVersion 0.12.0, evidenceMaxBytes 4194304
+curl -s https://<api-host>/api/v1/meta            # contractVersion 0.13.0, evidenceMaxBytes 4194304
 ```
 
 If the first request instead returns `500 FUNCTION_INVOCATION_FAILED`, open *Runtime Logs* for that deployment

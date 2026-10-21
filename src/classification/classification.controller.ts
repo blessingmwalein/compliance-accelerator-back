@@ -24,6 +24,7 @@ import {
   ClassificationLevelListQueryDto,
   ClassificationLevelPageDto,
   ClassificationLevelVersionDto,
+  ClassificationSummaryDto,
   CreateClassificationLevelDto,
   UpdateClassificationLevelDto,
 } from './classification.dto.js';
@@ -31,7 +32,8 @@ import { ClassificationService } from './classification.service.js';
 
 /**
  * The organisation's data classification scheme. Levels are archived, never deleted, and a rank is never
- * reused — so a record classified years ago keeps its place in the order.
+ * reused — so a record classified years ago keeps its place in the order. `summary` counts the whole live
+ * scheme, because one page of the list cannot state a coverage figure.
  */
 @ApiTags('classification')
 @ApiParam({ name: 'organisationId', type: String, format: 'uuid' })
@@ -54,6 +56,17 @@ export class ClassificationController {
   @ApiOkResponse({ type: ClassificationLevelPageDto })
   list(@Query() query: ClassificationLevelListQueryDto): Promise<ClassificationLevelPageDto> {
     return this.levels.list(query);
+  }
+
+  @Get('summary')
+  @RequirePermission('data.view')
+  @ApiOperation({
+    operationId: 'getClassificationSummary',
+    summary: 'Coverage of the whole scheme (the counts are not a page of the list)',
+  })
+  @ApiOkResponse({ type: ClassificationSummaryDto })
+  summary(): Promise<ClassificationSummaryDto> {
+    return this.levels.summary();
   }
 
   @Post()

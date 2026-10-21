@@ -7322,6 +7322,15 @@
             }
           },
           {
+            "name": "tier",
+            "required": false,
+            "in": "query",
+            "description": "Only levels tagged at this reference tier. Untagged levels match no tier.",
+            "schema": {
+              "$ref": "#/components/schemas/ClassificationTier"
+            }
+          },
+          {
             "name": "organisationId",
             "required": true,
             "in": "path",
@@ -7471,6 +7480,70 @@
         ],
         "x-access": "permission",
         "x-permission": "data.create"
+      }
+    },
+    "/organisations/{organisationId}/classification-levels/summary": {
+      "get": {
+        "operationId": "getClassificationSummary",
+        "parameters": [
+          {
+            "name": "organisationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassificationSummaryDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session ended.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not allow this action.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a member of this organisation, or the classification level does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Coverage of the whole scheme (the counts are not a page of the list)",
+        "tags": [
+          "classification"
+        ],
+        "x-access": "permission",
+        "x-permission": "data.view"
       }
     },
     "/organisations/{organisationId}/classification-levels/{levelId}": {
@@ -17338,7 +17411,7 @@
   "info": {
     "title": "Fernando Compliance Accelerator API",
     "description": "REST API for the Fernando Compliance Accelerator (FCA) platform. Errors use RFC 9457 problem+json with a stable `code`. Cross-framework mappings and assessments are informative aids and do not constitute legal advice.",
-    "version": "0.12.0",
+    "version": "0.14.0",
     "contact": {}
   },
   "tags": [],
@@ -19187,6 +19260,54 @@
         ],
         "description": "`not_assessed`: nothing of this framework has been put into a submitted or approved cycle, or none of\nit carries a maturity level. It is never a zero percent and never called non-compliant."
       },
+      "FrameworkAreaMaturityDto": {
+        "type": "object",
+        "properties": {
+          "areaId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Null for subjects not filed under a governance area; `areaName` says that in words."
+          },
+          "availability": {
+            "description": "`not_assessed`: nothing of this framework under this area carries a maturity level.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FrameworkCoverageAvailability"
+              }
+            ]
+          },
+          "areaName": {
+            "type": "string"
+          },
+          "inScope": {
+            "type": "number",
+            "description": "Subjects of this framework under this area in the organisation's current answers."
+          },
+          "rated": {
+            "type": "number",
+            "description": "Of those, how many carry a current maturity."
+          },
+          "current": {
+            "$ref": "#/components/schemas/MeasuredDto"
+          },
+          "target": {
+            "$ref": "#/components/schemas/MeasuredDto"
+          },
+          "gap": {
+            "$ref": "#/components/schemas/MeasuredDto"
+          }
+        },
+        "required": [
+          "areaId",
+          "availability",
+          "areaName",
+          "inScope",
+          "rated",
+          "current",
+          "target",
+          "gap"
+        ]
+      },
       "FrameworkCoverageDto": {
         "type": "object",
         "properties": {
@@ -19224,6 +19345,13 @@
               "in_progress"
             ],
             "type": "string"
+          },
+          "byArea": {
+            "description": "This framework's maturity inside each governance area it is rated in, biggest gap first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FrameworkAreaMaturityDto"
+            }
           },
           "frameworkId": {
             "type": "string"
@@ -19269,6 +19397,7 @@
           "gapBands",
           "availability",
           "status",
+          "byArea",
           "frameworkId",
           "code",
           "name",
@@ -23284,9 +23413,46 @@
           "version"
         ]
       },
+      "ClassificationTier": {
+        "type": "string",
+        "enum": [
+          "PUBLIC",
+          "INTERNAL",
+          "CONFIDENTIAL",
+          "RESTRICTED"
+        ]
+      },
+      "DataPosture": {
+        "type": "string",
+        "enum": [
+          "LOW",
+          "MEDIUM",
+          "HIGH",
+          "CRITICAL"
+        ],
+        "description": "How exposed data at this level is, as the organisation states it. Never derived from the tier, and\nnever inferred when it is absent."
+      },
       "ClassificationLevelDto": {
         "type": "object",
         "properties": {
+          "tier": {
+            "nullable": true,
+            "description": "The reference tier this level is graded at, or null when nobody tagged it. The organisation's own word\nfor the level stays in `name`; the tier is the fixed vocabulary the register filters and counts on.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClassificationTier"
+              }
+            ]
+          },
+          "posture": {
+            "nullable": true,
+            "description": "How exposed data at this level is, as the organisation states it. Never derived from the tier, and\nnever inferred when it is absent.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DataPosture"
+              }
+            ]
+          },
           "lastReviewDate": {
             "type": "string",
             "nullable": true,
@@ -23318,6 +23484,15 @@
             "nullable": true,
             "description": "How data at this level is to be handled (encryption, sharing, marking). Free text, never legal advice."
           },
+          "retentionPeriod": {
+            "type": "string",
+            "nullable": true,
+            "description": "How long data at this level is kept, in words. The rule itself lives in the retention register."
+          },
+          "encryptionRequired": {
+            "type": "boolean",
+            "description": "A control stated for this level by the organisation, not one the platform has verified."
+          },
           "ownerMembershipId": {
             "type": "string",
             "nullable": true,
@@ -23343,6 +23518,8 @@
           }
         },
         "required": [
+          "tier",
+          "posture",
           "lastReviewDate",
           "nextReviewDate",
           "id",
@@ -23350,6 +23527,8 @@
           "rank",
           "description",
           "handlingGuidance",
+          "retentionPeriod",
+          "encryptionRequired",
           "ownerMembershipId",
           "ownerName",
           "archived",
@@ -23377,9 +23556,78 @@
           "nextCursor"
         ]
       },
+      "ClassificationSummaryAvailability": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "no_scheme"
+        ],
+        "description": "`no_scheme`: the organisation has no levels at all. `ok`: the counts below are real."
+      },
+      "ClassificationSummaryDto": {
+        "type": "object",
+        "properties": {
+          "availability": {
+            "description": "`no_scheme`: the organisation has no levels at all. `ok`: the counts below are real.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClassificationSummaryAvailability"
+              }
+            ]
+          },
+          "asOf": {
+            "type": "string",
+            "description": "Today in the organisation's time zone: the day the counts were decided against."
+          },
+          "total": {
+            "type": "number",
+            "description": "Live (non-archived) levels in the scheme."
+          },
+          "restricted": {
+            "type": "number",
+            "description": "Live levels tagged RESTRICTED. A level nobody tagged counts towards none of the tiers."
+          },
+          "confidential": {
+            "type": "number"
+          },
+          "highExposure": {
+            "type": "number",
+            "description": "Live levels whose stated posture is HIGH or CRITICAL."
+          }
+        },
+        "required": [
+          "availability",
+          "asOf",
+          "total",
+          "restricted",
+          "confidential",
+          "highExposure"
+        ]
+      },
       "CreateClassificationLevelDto": {
         "type": "object",
         "properties": {
+          "tier": {
+            "description": "The reference tier to grade this level at. Omit to leave it untagged.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClassificationTier"
+              }
+            ]
+          },
+          "posture": {
+            "description": "How exposed data at this level is. Omit to leave the posture unstated.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DataPosture"
+              }
+            ]
+          },
+          "encryptionRequired": {
+            "type": "boolean",
+            "description": "Default false: a level nobody has assessed does not claim that encryption is required at it.",
+            "default": false
+          },
           "name": {
             "type": "string",
             "description": "Unique among the organisation's active levels (case-insensitive).",
@@ -23400,6 +23648,12 @@
           "handlingGuidance": {
             "type": "string",
             "nullable": true,
+            "maxLength": 2000
+          },
+          "retentionPeriod": {
+            "type": "string",
+            "nullable": true,
+            "description": "How long data at this level is kept, in words.",
             "maxLength": 2000
           },
           "ownerMembershipId": {
@@ -23424,6 +23678,29 @@
       "UpdateClassificationLevelDto": {
         "type": "object",
         "properties": {
+          "tier": {
+            "nullable": true,
+            "description": "The reference tier to grade this level at. `null` clears the tag: the level goes back to untagged.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClassificationTier"
+              }
+            ]
+          },
+          "posture": {
+            "nullable": true,
+            "description": "How exposed data at this level is. `null` leaves the posture unstated again.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DataPosture"
+              }
+            ]
+          },
+          "encryptionRequired": {
+            "type": "boolean",
+            "description": "Default false: a level nobody has assessed does not claim that encryption is required at it.",
+            "default": false
+          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -23442,6 +23719,12 @@
           "handlingGuidance": {
             "type": "string",
             "nullable": true,
+            "maxLength": 2000
+          },
+          "retentionPeriod": {
+            "type": "string",
+            "nullable": true,
+            "description": "How long data at this level is kept, in words.",
             "maxLength": 2000
           },
           "ownerMembershipId": {
@@ -23751,6 +24034,80 @@
         ],
         "description": "`no_records`: the register is empty. `not_configured`: no activity has a review due date, so there is\nnothing to monitor. `ok`: the counts below are real."
       },
+      "RopaUnitCountDto": {
+        "type": "object",
+        "properties": {
+          "businessUnitId": {
+            "type": "string",
+            "nullable": true,
+            "description": "`null` for the group of activities nobody has assigned to a unit.",
+            "format": "uuid"
+          },
+          "businessUnitName": {
+            "type": "string",
+            "nullable": true
+          },
+          "activities": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "businessUnitId",
+          "businessUnitName",
+          "activities"
+        ]
+      },
+      "RopaReviewItemDto": {
+        "type": "object",
+        "properties": {
+          "businessUnitId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "businessUnitName": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastReviewDate": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          },
+          "nextReviewDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "reviewState": {
+            "description": "`overdue` or `due_soon`: the two states that mean somebody should look at it now.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReviewState"
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "daysRemaining": {
+            "type": "number",
+            "description": "Whole days until the due date (negative = past due). Never null: a listed row has a due date."
+          }
+        },
+        "required": [
+          "businessUnitId",
+          "businessUnitName",
+          "lastReviewDate",
+          "nextReviewDate",
+          "reviewState",
+          "id",
+          "name",
+          "daysRemaining"
+        ]
+      },
       "RopaMonitorDto": {
         "type": "object",
         "properties": {
@@ -23761,6 +24118,20 @@
                 "$ref": "#/components/schemas/RopaMonitorAvailability"
               }
             ]
+          },
+          "byBusinessUnit": {
+            "description": "Live activities grouped by business unit, largest group first; the `null` unit is the unassigned one.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RopaUnitCountDto"
+            }
+          },
+          "needsReview": {
+            "description": "The activities needing review, most overdue first, at most `needsReviewLimit` of them. The counts above\ncover every live row; this list is the part a screen can show.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RopaReviewItemDto"
+            }
           },
           "asOf": {
             "type": "string",
@@ -23795,10 +24166,20 @@
           "unlinked": {
             "type": "number",
             "description": "Live activities with neither: the register lists them, but nothing else knows about them."
+          },
+          "needsReviewLimit": {
+            "type": "number",
+            "description": "How many activities the monitor can hold in one response."
+          },
+          "needsReviewTruncated": {
+            "type": "boolean",
+            "description": "True when more activities need a review than the list below carries."
           }
         },
         "required": [
           "availability",
+          "byBusinessUnit",
+          "needsReview",
           "asOf",
           "total",
           "overdue",
@@ -23807,7 +24188,9 @@
           "notReviewed",
           "linkedToLawfulBasis",
           "linkedToClassification",
-          "unlinked"
+          "unlinked",
+          "needsReviewLimit",
+          "needsReviewTruncated"
         ]
       },
       "RopaActivityInitialStatus": {
@@ -27890,6 +28273,22 @@
           "ELIMINATE"
         ]
       },
+      "PriorityQuadrantItemDto": {
+        "type": "object",
+        "properties": {
+          "assessmentItemId": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string",
+            "description": "What the item is about, as one line: the area name and the requirement identifier."
+          }
+        },
+        "required": [
+          "assessmentItemId",
+          "subject"
+        ]
+      },
       "PriorityQuadrantDto": {
         "type": "object",
         "properties": {
@@ -27899,6 +28298,13 @@
                 "$ref": "#/components/schemas/PriorityQuadrant"
               }
             ]
+          },
+          "sampleItems": {
+            "description": "Up to `sampleItemsLimit` of those items, oldest first. A quadrant with more than this many is shown as\n\"+N more\"; the count above stays the whole truth.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriorityQuadrantItemDto"
+            }
           },
           "label": {
             "type": "string"
@@ -27913,14 +28319,20 @@
           "count": {
             "type": "number",
             "description": "Items whose derived quadrant is this one (counts from the saved answers, never a stored label)."
+          },
+          "sampleItemsLimit": {
+            "type": "number",
+            "description": "How many items one quadrant can name."
           }
         },
         "required": [
           "quadrant",
+          "sampleItems",
           "label",
           "purpose",
           "defaultScheduling",
-          "count"
+          "count",
+          "sampleItemsLimit"
         ]
       },
       "PriorityQuestionGroup": {

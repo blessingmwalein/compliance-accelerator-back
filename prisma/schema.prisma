@@ -1421,9 +1421,33 @@ enum DisposalTarget {
   RETENTION_RULE
 }
 
+/**
+ * The four tiers the reference app grades a data category at. They are a fixed vocabulary beside the
+ * organisation's own scheme (`ClassificationLevel.name` is still its own text): a category called "Credit
+ * Reports" can say it is RESTRICTED without a page guessing that from its name. NULL means nobody tagged
+ * the level, which the register reports as untagged rather than filing it somewhere.
+ */
+enum ClassificationTier {
+  PUBLIC
+  INTERNAL
+  CONFIDENTIAL
+  RESTRICTED
+}
+
+/// How exposed the data at a level is, as the organisation states it. The register counts HIGH and CRITICAL
+/// as high exposure; it never infers a posture from the tier.
+enum DataPosture {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
 /// A sensitivity level of the organisation's own scheme (AC-CLS-01): a rank that orders the levels,
-/// handling guidance, an owner and a review date. NOTHING is shipped as a default scheme: an organisation
-/// with no levels is reported as `not_configured`, and its records simply carry no classification.
+/// handling guidance, an owner and a review date, and since contract 0.13.0 the reference tier it is graded
+/// at, a stated exposure posture, a retention period in words and whether encryption is required at it.
+/// NOTHING is shipped as a default scheme: an organisation with no levels is reported as `not_configured`,
+/// and its records simply carry no classification.
 model ClassificationLevel {
   id                String    @id @default(uuid(7)) @db.Uuid
   organisationId    String    @map("organisation_id") @db.Uuid
@@ -1433,6 +1457,15 @@ model ClassificationLevel {
   rank              Int       @db.SmallInt
   description       String?
   handlingGuidance  String?   @map("handling_guidance")
+  /// The reference tier this level is graded at; null says nobody tagged it. `name` stays the organisation's
+  /// own word for the level, so a scheme of five levels is still a scheme of five levels.
+  tier              ClassificationTier?
+  /// How exposed data at this level is, as the organisation states it. Never derived from the tier.
+  posture           DataPosture?
+  /// How long data at this level is kept, in words. The rule itself lives in the retention register.
+  retentionPeriod   String?   @map("retention_period")
+  /// A control the organisation states for this level, not a control the platform has verified.
+  encryptionRequired Boolean  @default(false) @map("encryption_required")
   ownerMembershipId String?   @map("owner_membership_id") @db.Uuid
   lastReviewDate    DateTime? @map("last_review_date") @db.Date
   nextReviewDate    DateTime? @map("next_review_date") @db.Date

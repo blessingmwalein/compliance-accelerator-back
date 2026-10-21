@@ -6,12 +6,14 @@ import { isUniqueViolation } from '../common/errors/unique-violation.js';
 import { pageSizeOf, toPage } from '../common/pagination.js';
 import type { Tx } from '../database/db-client.js';
 import { UnitOfWork } from '../database/unit-of-work.js';
+import { todayIn } from '../domain/remediation/policy.js';
 import { toDateOnly, utcDay } from '../domain/registers/review.js';
 import type {
   ClassificationLevelDto,
   ClassificationLevelListQueryDto,
   ClassificationLevelPageDto,
   ClassificationLevelVersionDto,
+  ClassificationSummaryDto,
   CreateClassificationLevelDto,
   UpdateClassificationLevelDto,
 } from './classification.dto.js';
@@ -27,6 +29,10 @@ const toDto = (record: LevelRecord): ClassificationLevelDto => ({
   rank: record.rank,
   description: record.description,
   handlingGuidance: record.handlingGuidance,
+  tier: record.tier,
+  posture: record.posture,
+  retentionPeriod: record.retentionPeriod,
+  encryptionRequired: record.encryptionRequired,
   ownerMembershipId: record.ownerMembershipId,
   ownerName: record.owner?.user.fullName ?? null,
   lastReviewDate: toDateOnly(record.lastReviewDate),
@@ -95,10 +101,33 @@ export class ClassificationService {
         includeArchived: query.includeArchived === true,
         ...(query.after ? { after: query.after } : {}),
         ...(query.q ? { q: query.q } : {}),
+        ...(query.tier ? { tier: query.tier } : {}),
       }),
     );
     const page = toPage(rows, limit);
     return { items: page.items.map(toDto), nextCursor: page.nextCursor };
+  }
+
+  /**
+   * The coverage figures the register is judged on, counted over every live level rather than over one page
+   * of the list. A level nobody tagged belongs to no tier and states no posture, so the tier and exposure
+   * counts are not a partition of `total` and are never presented as one.
+   */
+  summary(): Promise<ClassificationSummaryDto> {
+    return this.uow.run(async (tx) => {
+      const today = todayIn(await this.levels.timezone(tx), this.clock.now());
+      const rows = await this.levels.liveCoverageRows(tx);
+      return {
+        // no levels is not "a scheme of nothing": it is an organisation that has not classified its data yet
+        availability: rows.length === 0 ? ('no_scheme' as const) : ('ok' as const),
+        asOf: today,
+        total: rows.length,
+        restricted: rows.filter((row) => row.tier === 'RESTRICTED').length,
+        confidential: rows.filter((row) => row.tier === 'CONFIDENTIAL').length,
+        highExposure: rows.filter((row) => row.posture === 'HIGH' || row.posture === 'CRITICAL')
+          .length,
+      };
+    });
   }
 
   /** `rank` may be omitted: the level is then appended after the highest rank in the scheme. */
@@ -110,6 +139,10 @@ export class ClassificationService {
           rank: dto.rank ?? (await this.levels.maxRank(tx)) + 1,
           description: dto.description ?? null,
           handlingGuidance: dto.handlingGuidance ?? null,
+          tier: dto.tier ?? null,
+          posture: dto.posture ?? null,
+          retentionPeriod: dto.retentionPeriod ?? null,
+          encryptionRequired: dto.encryptionRequired === true,
           ownerMembershipId: dto.ownerMembershipId ?? null,
           lastReviewDate: dto.lastReviewDate ? utcDay(dto.lastReviewDate) : null,
           nextReviewDate: dto.nextReviewDate ? utcDay(dto.nextReviewDate) : null,
@@ -156,12 +189,31 @@ export class ClassificationService {
           changes.rank = dto.rank;
           audited.rank = { from: current.rank, to: dto.rank };
         }
-        for (const key of ['description', 'handlingGuidance'] as const) {
+        for (const key of ['description', 'handlingGuidance', 'retentionPeriod'] as const) {
           const next = dto[key];
           if (next !== undefined && next !== current[key]) {
             changes[key] = next;
             audited[key] = { from: current[key], to: next };
           }
+        }
+        // a tier or a posture sent as null clears the tag: the level goes back to "nobody said"
+        if (dto.tier !== undefined && dto.tier !== current.tier) {
+          changes.tier = dto.tier ?? null;
+          audited.tier = { from: current.tier, to: dto.tier ?? null };
+        }
+        if (dto.posture !== undefined && dto.posture !== current.posture) {
+          changes.posture = dto.posture ?? null;
+          audited.posture = { from: current.posture, to: dto.posture ?? null };
+        }
+        if (
+          dto.encryptionRequired !== undefined &&
+          dto.encryptionRequired !== current.encryptionRequired
+        ) {
+          changes.encryptionRequired = dto.encryptionRequired;
+          audited.encryptionRequired = {
+            from: current.encryptionRequired,
+            to: dto.encryptionRequired,
+          };
         }
         if (
           dto.ownerMembershipId !== undefined &&
