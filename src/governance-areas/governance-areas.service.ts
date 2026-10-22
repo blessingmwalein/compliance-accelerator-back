@@ -12,10 +12,12 @@ import type {
   GovernanceAreaListQueryDto,
   GovernanceAreaPageDto,
   GovernanceAreaVersionDto,
+  MappingNoteInputDto,
   UpdateGovernanceAreaDto,
 } from './governance-areas.dto.js';
 import {
   GovernanceAreasRepository,
+  type AreaNoteField,
   type GovernanceAreaFields,
   type GovernanceAreaRecord,
 } from './governance-areas.repository.js';
@@ -24,6 +26,8 @@ const toDto = (record: GovernanceAreaRecord): GovernanceAreaDto => ({
   id: record.id,
   name: record.name,
   description: record.description,
+  category: record.category,
+  controlObjective: record.controlObjective,
   archived: record.archivedAt !== null,
   archivedAt: record.archivedAt?.toISOString() ?? null,
   version: record.version,
@@ -42,6 +46,19 @@ const nameTaken = () =>
     ErrorCode.GovernanceAreaNameTaken,
     HttpStatus.CONFLICT,
     'Another active governance area already has this name.',
+  );
+const unknownFramework = (id: string) =>
+  new AppException(
+    ErrorCode.ValidationFailed,
+    HttpStatus.BAD_REQUEST,
+    'Request validation failed.',
+    [
+      {
+        path: 'notes',
+        code: 'UNKNOWN_FRAMEWORK',
+        message: `No active framework in the catalogue has the id ${id}.`,
+      },
+    ],
   );
 
 /**
@@ -79,9 +96,13 @@ export class GovernanceAreasService {
         const fields: GovernanceAreaFields = {
           name: dto.name,
           description: dto.description ?? null,
+          category: dto.category ?? null,
+          controlObjective: dto.controlObjective ?? null,
         };
         await this.assertFree(tx, fields.name);
+        const notes = await this.assertNotes(tx, dto.notes);
         const created = await this.areas.create(tx, fields);
+        await this.areas.replaceNotes(tx, created.id, notes);
         await this.audit.record(tx, {
           action: 'governance_area.created',
           entityType: 'governance_area',
@@ -109,6 +130,8 @@ export class GovernanceAreasService {
             'An archived governance area cannot be edited. Restore it first.',
           );
         }
+        // the notes are validated before anything is written, so a bad framework id writes no label either
+        const notes = dto.notes === undefined ? undefined : await this.assertNotes(tx, dto.notes);
         const changes: Partial<GovernanceAreaFields> = {};
         const audited: Record<string, unknown> = {};
         if (dto.name !== undefined && dto.name !== current.name) {
@@ -119,10 +142,29 @@ export class GovernanceAreasService {
           changes.description = dto.description;
           audited.description = 'changed';
         }
-        if (Object.keys(changes).length === 0) return toDto(current);
+        if (dto.category !== undefined && dto.category !== current.category) {
+          changes.category = dto.category;
+          audited.category = 'changed';
+        }
+        if (
+          dto.controlObjective !== undefined &&
+          dto.controlObjective !== current.controlObjective
+        ) {
+          changes.controlObjective = dto.controlObjective;
+          audited.controlObjective = 'changed';
+        }
+        // a `notes` key replaces the row's whole set of cells, so its presence alone is a change
+        const cellsChanged = notes !== undefined;
+        if (Object.keys(changes).length === 0 && !cellsChanged) return toDto(current);
 
         if (changes.name !== undefined) await this.assertFree(tx, changes.name, id);
+        // The area's version guards the whole sheet, reference cells included, so the row is touched even
+        // when only a cell changed: two people editing one row cannot both believe they saved last.
         if (!(await this.areas.update(tx, id, dto.version, changes))) throw versionConflict();
+        if (notes !== undefined) {
+          await this.areas.replaceNotes(tx, id, notes);
+          audited.referenceCells = `${String(notes.filter((note) => note.note !== null).length)} of ${String(notes.length)} stated`;
+        }
         await this.audit.record(tx, {
           action: 'governance_area.updated',
           entityType: 'governance_area',
@@ -136,6 +178,42 @@ export class GovernanceAreasService {
       if (isUniqueViolation(error)) throw nameTaken();
       throw error;
     }
+  }
+
+  /**
+   * Clears one row's own reference text: its category, its control objective and every framework cell of
+   * it. The area itself and its verified requirement mappings are untouched — an area is archived, never
+   * deleted, and a mapping is history. Idempotent: a row with nothing stated has nothing to clear.
+   */
+  deleteSheet(id: string): Promise<GovernanceAreaDto> {
+    return this.uow.run(async (tx) => {
+      const current = await this.areas.findById(tx, id);
+      if (!current) throw notFound();
+      const removed = await this.areas.deleteNotes(tx, id);
+      const blank = current.category === null && current.controlObjective === null && removed === 0;
+      if (blank) return toDto(current);
+      if (
+        !(await this.areas.update(tx, id, current.version, {
+          category: null,
+          controlObjective: null,
+        }))
+      ) {
+        throw versionConflict();
+      }
+      await this.audit.record(tx, {
+        action: 'governance_area.sheet_deleted',
+        entityType: 'governance_area',
+        entityId: id,
+        entityLabel: current.name,
+        changes: { referenceCells: removed, category: 'cleared', controlObjective: 'cleared' },
+      });
+      return toDto({
+        ...current,
+        category: null,
+        controlObjective: null,
+        version: current.version + 1,
+      });
+    });
   }
 
   archive(id: string, dto: GovernanceAreaVersionDto): Promise<GovernanceAreaDto> {
@@ -185,5 +263,24 @@ export class GovernanceAreasService {
   /** The friendly pre-check (the unique index is the guarantee). */
   private async assertFree(tx: Tx, name: string, exceptId?: string): Promise<void> {
     if (await this.areas.findActiveByName(tx, name, exceptId)) throw nameTaken();
+  }
+
+  /**
+   * The row's reference cells, with every framework id checked against the catalogue before anything is
+   * written: a cell pointing at an unknown or retired framework is refused as a bad request, not dropped in
+   * silence, because a cell nobody can see in the table would be a cell nobody can clear.
+   */
+  private async assertNotes(
+    tx: Tx,
+    notes: MappingNoteInputDto[] | undefined,
+  ): Promise<AreaNoteField[]> {
+    if (notes === undefined || notes.length === 0) return [];
+    const known = await this.areas.findActiveFrameworkIds(tx, [
+      ...new Set(notes.map((note) => note.frameworkId)),
+    ]);
+    for (const note of notes) {
+      if (!known.has(note.frameworkId)) throw unknownFramework(note.frameworkId);
+    }
+    return notes.map((note) => ({ frameworkId: note.frameworkId, note: note.note ?? null }));
   }
 }

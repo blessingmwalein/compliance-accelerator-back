@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -55,7 +56,10 @@ export class GovernanceAreasController {
   @RequirePermission('mapping.edit')
   @ApiOperation({ operationId: 'createGovernanceArea', summary: 'Create a governance area' })
   @ApiCreatedResponse({ type: GovernanceAreaDto })
-  @ApiProblemResponse(HttpStatus.BAD_REQUEST, 'Validation failed.')
+  @ApiProblemResponse(
+    HttpStatus.BAD_REQUEST,
+    'Validation failed, including `UNKNOWN_FRAMEWORK` when a reference cell names a framework that is not in the active catalogue; nothing was written.',
+  )
   @ApiProblemResponse(HttpStatus.CONFLICT, '`GOVERNANCE_AREA_NAME_TAKEN`.')
   create(@Body() dto: CreateGovernanceAreaDto): Promise<GovernanceAreaDto> {
     return this.areas.create(dto);
@@ -65,6 +69,10 @@ export class GovernanceAreasController {
   @RequirePermission('mapping.edit')
   @ApiOperation({ operationId: 'updateGovernanceArea', summary: 'Change a governance area' })
   @ApiOkResponse({ type: GovernanceAreaDto })
+  @ApiProblemResponse(
+    HttpStatus.BAD_REQUEST,
+    'Validation failed, including `UNKNOWN_FRAMEWORK`; a rejected cell list changes nothing.',
+  )
   @ApiProblemResponse(HttpStatus.CONFLICT, '`VERSION_CONFLICT` or `GOVERNANCE_AREA_NAME_TAKEN`.')
   update(
     @Param('areaId', ParseUUIDPipe) areaId: string,
@@ -101,5 +109,23 @@ export class GovernanceAreasController {
     @Body() dto: GovernanceAreaVersionDto,
   ): Promise<GovernanceAreaDto> {
     return this.areas.unarchive(areaId, dto);
+  }
+
+  /**
+   * Clears one row of the mapping table: its category, its control objective and every framework cell of
+   * it. The area stays (archived, never deleted) and its verified requirement mappings stay — this route
+   * removes only the text the organisation typed for itself. Clearing an empty row changes nothing.
+   */
+  @Delete(':areaId/mapping-sheet')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission('mapping.edit')
+  @ApiOperation({
+    operationId: 'deleteMappingSheet',
+    summary: 'Clear a row of the mapping table (the area and its mappings stay)',
+  })
+  @ApiOkResponse({ type: GovernanceAreaDto })
+  @ApiProblemResponse(HttpStatus.CONFLICT, '`VERSION_CONFLICT`: changed by someone else.')
+  deleteSheet(@Param('areaId', ParseUUIDPipe) areaId: string): Promise<GovernanceAreaDto> {
+    return this.areas.deleteSheet(areaId);
   }
 }

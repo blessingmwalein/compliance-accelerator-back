@@ -18,6 +18,7 @@ export const TENANT_MODELS = [
   'OrganisationFramework',
   'OrganisationEntitlement',
   'GovernanceArea',
+  'AreaFrameworkNote',
   'OrganisationMapping',
   'Assessment',
   'AssessmentItem',

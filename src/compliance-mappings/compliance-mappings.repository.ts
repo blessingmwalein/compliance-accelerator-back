@@ -63,7 +63,18 @@ export interface MatrixAreaRecord {
   id: string;
   name: string;
   description: string | null;
+  category: string | null;
+  controlObjective: string | null;
   archivedAt: Date | null;
+}
+
+/** One reference cell of a row, with the framework column it belongs in. */
+export interface MatrixNoteRecord {
+  areaId: string;
+  frameworkId: string;
+  frameworkCode: string;
+  note: string;
+  updatedAt: Date;
 }
 
 export interface MappingFilters {
@@ -299,8 +310,41 @@ export class OrganisationMappingsRepository extends TenantRepository {
       },
       orderBy: { id: 'asc' },
       take: options.limit + 1,
-      select: { id: true, name: true, description: true, archivedAt: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        category: true,
+        controlObjective: true,
+        archivedAt: true,
+      },
     });
+  }
+
+  /**
+   * The reference cells of the given areas, ordered by the catalogue order of their framework. A cell whose
+   * framework was retired later still comes back: it exists, so the table must show it and let it be cleared.
+   */
+  async listNotesForAreas(tx: Tx, areaIds: string[]): Promise<MatrixNoteRecord[]> {
+    if (areaIds.length === 0) return [];
+    const rows = await tx.areaFrameworkNote.findMany({
+      where: { organisationId: this.organisationId, areaId: { in: areaIds } },
+      orderBy: [{ framework: { sortOrder: 'asc' } }, { areaId: 'asc' }],
+      select: {
+        areaId: true,
+        frameworkId: true,
+        note: true,
+        updatedAt: true,
+        framework: { select: { code: true } },
+      },
+    });
+    return rows.map((row) => ({
+      areaId: row.areaId,
+      frameworkId: row.frameworkId,
+      frameworkCode: row.framework.code,
+      note: row.note,
+      updatedAt: row.updatedAt,
+    }));
   }
 
   /** Mappings of the given areas (`null` in the list = mappings with no area). */

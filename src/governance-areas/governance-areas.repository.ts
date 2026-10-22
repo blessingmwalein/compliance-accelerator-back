@@ -7,6 +7,8 @@ export interface GovernanceAreaRecord {
   id: string;
   name: string;
   description: string | null;
+  category: string | null;
+  controlObjective: string | null;
   archivedAt: Date | null;
   version: number;
 }
@@ -14,12 +16,22 @@ export interface GovernanceAreaRecord {
 export interface GovernanceAreaFields {
   name: string;
   description: string | null;
+  category: string | null;
+  controlObjective: string | null;
+}
+
+/** One cell of a row's own reference text: what the organisation cites on this topic in this framework. */
+export interface AreaNoteField {
+  frameworkId: string;
+  note: string | null;
 }
 
 const SELECT = {
   id: true,
   name: true,
   description: true,
+  category: true,
+  controlObjective: true,
   archivedAt: true,
   version: true,
 } as const;
@@ -87,5 +99,44 @@ export class GovernanceAreasRepository extends TenantRepository {
       data: { ...data, version: { increment: 1 } },
     });
     return result.count === 1;
+  }
+
+  /** The ids of these catalogue frameworks that still exist and are active (a retired one is not writable). */
+  async findActiveFrameworkIds(tx: Tx, ids: string[]): Promise<Set<string>> {
+    if (ids.length === 0) return new Set();
+    const rows = await tx.framework.findMany({
+      where: { id: { in: ids }, isActive: true },
+      select: { id: true },
+    });
+    return new Set(rows.map((row) => row.id));
+  }
+
+  /**
+   * Replaces the row's reference notes with the given set: a cell whose note is null is removed rather than
+   * stored empty, so an absent row and an empty string cannot mean the same thing twice.
+   */
+  async replaceNotes(tx: Tx, areaId: string, notes: AreaNoteField[]): Promise<void> {
+    await tx.areaFrameworkNote.deleteMany({
+      where: { organisationId: this.organisationId, areaId },
+    });
+    const filled = notes.filter((entry) => entry.note !== null);
+    if (filled.length === 0) return;
+    await tx.areaFrameworkNote.createMany({
+      data: filled.map((entry) => ({
+        organisationId: this.organisationId,
+        areaId,
+        frameworkId: entry.frameworkId,
+        // the DTO trims, and the database check refuses a blank; this is the belt behind it
+        note: (entry.note ?? '').trim(),
+      })),
+    });
+  }
+
+  /** Removes every reference note of one area. Idempotent: an area with no notes has nothing to remove. */
+  async deleteNotes(tx: Tx, areaId: string): Promise<number> {
+    const result = await tx.areaFrameworkNote.deleteMany({
+      where: { organisationId: this.organisationId, areaId },
+    });
+    return result.count;
   }
 }

@@ -31,6 +31,7 @@ export const AUDIT_ACTIONS = [
   'governance_area.updated',
   'governance_area.archived',
   'governance_area.unarchived',
+  'governance_area.sheet_deleted',
   'mapping.created',
   'mapping.updated',
   'mapping.archived',

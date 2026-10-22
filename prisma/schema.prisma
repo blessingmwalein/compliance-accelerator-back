@@ -96,6 +96,7 @@ model Organisation {
   organisationFrameworks OrganisationFramework[]
   entitlement            OrganisationEntitlement?
   governanceAreas        GovernanceArea[]
+  areaFrameworkNotes     AreaFrameworkNote[]
   organisationMappings   OrganisationMapping[]
   auditEvents            AuditEvent[]
   idempotency            IdempotencyKey[]
@@ -609,6 +610,7 @@ model Framework {
 
   organisationFrameworks OrganisationFramework[]
   versions               FrameworkVersion[]
+  areaFrameworkNotes     AreaFrameworkNote[]
 
   assessmentItems    AssessmentItem[]
   remediationTasks   RemediationTask[]
@@ -815,24 +817,53 @@ model MappingPackEntry {
 /// An organisation's own list of governance areas (topics such as "Data subject rights"). Free labels chosen by
 /// the organisation: no legal content. Archived, never deleted. Phase 5 assessments will point at these.
 model GovernanceArea {
-  id             String    @id @default(uuid(7)) @db.Uuid
-  organisationId String    @map("organisation_id") @db.Uuid
-  name           String
-  description    String?
-  archivedAt     DateTime? @map("archived_at") @db.Timestamptz
-  version        Int       @default(1)
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  id               String    @id @default(uuid(7)) @db.Uuid
+  organisationId   String    @map("organisation_id") @db.Uuid
+  name             String
+  description      String?
+  /// The organisation's own short label for the row ("Encryption", "Logging & Audit"). A label, not a
+  /// taxonomy: the platform ships none, and an area with no category states nothing rather than a guess.
+  category         String?
+  /// What the organisation says it achieves on this topic, in its own words. Never a control verdict.
+  controlObjective String?   @map("control_objective")
+  archivedAt       DateTime? @map("archived_at") @db.Timestamptz
+  version          Int       @default(1)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   organisation     Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   mappings         OrganisationMapping[]
   assessmentItems  AssessmentItem[]
   remediationTasks RemediationTask[]
   risks            Risk[]
+  frameworkNotes   AreaFrameworkNote[]
 
   @@unique([organisationId, id])
   @@index([organisationId, archivedAt])
   @@map("governance_areas")
+}
+
+/// What the organisation cites on this topic in one framework: its own free text, one cell of the mapping
+/// table. It sits BESIDE the verified requirement links of `organisation_mappings` and never replaces one:
+/// a note is unverified by construction, so the screen keeps the links it has and words the note as the
+/// organisation's statement.
+model AreaFrameworkNote {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organisationId String   @map("organisation_id") @db.Uuid
+  areaId         String   @map("area_id") @db.Uuid
+  frameworkId    String   @map("framework_id") @db.Uuid
+  note           String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  organisation Organisation   @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  area         GovernanceArea @relation(fields: [organisationId, areaId], references: [organisationId, id], onDelete: Restrict)
+  framework    Framework      @relation(fields: [frameworkId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, areaId, frameworkId])
+  @@unique([organisationId, id])
+  @@index([organisationId, areaId])
+  @@map("area_framework_notes")
 }
 
 /// An organisation's mapping between two requirements of DIFFERENT frameworks, optionally filed under a
@@ -1252,28 +1283,28 @@ model RemediationTaskEvidence {
 /// are null until one exists: a PENDING row has no bytes, no key and no checksum, and a zero-filled stand-in
 /// would state a measurement that was never taken. The database check only judges them on a READY row.
 model Report {
-  id              String       @id @default(uuid(7)) @db.Uuid
-  organisationId  String       @map("organisation_id") @db.Uuid
-  template        String
+  id                String       @id @default(uuid(7)) @db.Uuid
+  organisationId    String       @map("organisation_id") @db.Uuid
+  template          String
   /// The version of the definition that rendered this document: the same template can print differently later.
-  templateVersion Int          @default(1) @map("template_version")
-  title           String
-  assessmentId    String?      @map("assessment_id") @db.Uuid
-  params          Json
-  status          ReportStatus @default(READY)
+  templateVersion   Int          @default(1) @map("template_version")
+  title             String
+  assessmentId      String?      @map("assessment_id") @db.Uuid
+  params            Json
+  status            ReportStatus @default(READY)
   /// The numbers and rows the PDF was drawn from, plus the methodology and band snapshot.
-  dataSnapshot    Json?        @map("data_snapshot")
-  storageKey      String?      @map("storage_key")
-  sha256          String?
-  size            Int?
+  dataSnapshot      Json?        @map("data_snapshot")
+  storageKey        String?      @map("storage_key")
+  sha256            String?
+  size              Int?
   /// When the document became readable, or when the job gave up. Null while the work is still queued.
-  finishedAt      DateTime?    @map("finished_at") @db.Timestamptz
+  finishedAt        DateTime?    @map("finished_at") @db.Timestamptz
   /// A stable code, so a client can say what went wrong without reading a sentence.
-  errorCode       String?      @map("error_code")
-  errorDetail     String?      @map("error_detail")
-  requestedByUserId String     @map("requested_by_user_id") @db.Uuid
-  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  errorCode         String?      @map("error_code")
+  errorDetail       String?      @map("error_detail")
+  requestedByUserId String       @map("requested_by_user_id") @db.Uuid
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   assessment   Assessment?  @relation(fields: [organisationId, assessmentId], references: [organisationId, id], onDelete: Restrict)
@@ -1449,30 +1480,30 @@ enum DataPosture {
 /// NOTHING is shipped as a default scheme: an organisation with no levels is reported as `not_configured`,
 /// and its records simply carry no classification.
 model ClassificationLevel {
-  id                String    @id @default(uuid(7)) @db.Uuid
-  organisationId    String    @map("organisation_id") @db.Uuid
-  name              String
+  id                 String              @id @default(uuid(7)) @db.Uuid
+  organisationId     String              @map("organisation_id") @db.Uuid
+  name               String
   /// The position in the scheme, lowest sensitivity first. Unique per organisation INCLUDING archived
   /// levels: a retired rank is not reused, so an old record's place in the order never changes.
-  rank              Int       @db.SmallInt
-  description       String?
-  handlingGuidance  String?   @map("handling_guidance")
+  rank               Int                 @db.SmallInt
+  description        String?
+  handlingGuidance   String?             @map("handling_guidance")
   /// The reference tier this level is graded at; null says nobody tagged it. `name` stays the organisation's
   /// own word for the level, so a scheme of five levels is still a scheme of five levels.
-  tier              ClassificationTier?
+  tier               ClassificationTier?
   /// How exposed data at this level is, as the organisation states it. Never derived from the tier.
-  posture           DataPosture?
+  posture            DataPosture?
   /// How long data at this level is kept, in words. The rule itself lives in the retention register.
-  retentionPeriod   String?   @map("retention_period")
+  retentionPeriod    String?             @map("retention_period")
   /// A control the organisation states for this level, not a control the platform has verified.
-  encryptionRequired Boolean  @default(false) @map("encryption_required")
-  ownerMembershipId String?   @map("owner_membership_id") @db.Uuid
-  lastReviewDate    DateTime? @map("last_review_date") @db.Date
-  nextReviewDate    DateTime? @map("next_review_date") @db.Date
-  archivedAt        DateTime? @map("archived_at") @db.Timestamptz
-  version           Int       @default(1)
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  encryptionRequired Boolean             @default(false) @map("encryption_required")
+  ownerMembershipId  String?             @map("owner_membership_id") @db.Uuid
+  lastReviewDate     DateTime?           @map("last_review_date") @db.Date
+  nextReviewDate     DateTime?           @map("next_review_date") @db.Date
+  archivedAt         DateTime?           @map("archived_at") @db.Timestamptz
+  version            Int                 @default(1)
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz
 
   organisation   Organisation    @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   owner          Membership?     @relation("ClassificationLevelOwner", fields: [organisationId, ownerMembershipId], references: [organisationId, id], onDelete: Restrict)

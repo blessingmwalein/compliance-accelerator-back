@@ -11113,7 +11113,7 @@
             }
           },
           "400": {
-            "description": "Validation failed.",
+            "description": "Validation failed, including `UNKNOWN_FRAMEWORK` when a reference cell names a framework that is not in the active catalogue; nothing was written.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -11210,6 +11210,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GovernanceAreaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed, including `UNKNOWN_FRAMEWORK`; a rejected cell list changes nothing.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
                 }
               }
             }
@@ -11440,6 +11450,88 @@
           }
         },
         "summary": "Restore an archived governance area",
+        "tags": [
+          "governance-areas"
+        ],
+        "x-access": "permission",
+        "x-permission": "mapping.edit"
+      }
+    },
+    "/organisations/{organisationId}/governance-areas/{areaId}/mapping-sheet": {
+      "delete": {
+        "operationId": "deleteMappingSheet",
+        "parameters": [
+          {
+            "name": "areaId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "organisationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernanceAreaDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session ended.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller's role does not allow this action.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a member of this organisation, or the governance area does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`VERSION_CONFLICT`: changed by someone else.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Clear a row of the mapping table (the area and its mappings stay)",
         "tags": [
           "governance-areas"
         ],
@@ -17411,7 +17503,7 @@
   "info": {
     "title": "Fernando Compliance Accelerator API",
     "description": "REST API for the Fernando Compliance Accelerator (FCA) platform. Errors use RFC 9457 problem+json with a stable `code`. Cross-framework mappings and assessments are informative aids and do not constitute legal advice.",
-    "version": "0.14.0",
+    "version": "0.15.0",
     "contact": {}
   },
   "tags": [],
@@ -17516,6 +17608,7 @@
           "governance_area.updated",
           "governance_area.archived",
           "governance_area.unarchived",
+          "governance_area.sheet_deleted",
           "mapping.created",
           "mapping.updated",
           "mapping.archived",
@@ -26258,6 +26351,16 @@
             "type": "string",
             "nullable": true
           },
+          "category": {
+            "type": "string",
+            "nullable": true,
+            "description": "The organisation's own short label for this row, shown beside its name. A label it chose: the platform\nships no taxonomy, so null is \"nobody has labelled it\", never a category guessed from the name."
+          },
+          "controlObjective": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the organisation says it achieves on this topic, in its own words. Never a control verdict."
+          },
           "archived": {
             "type": "boolean",
             "description": "True once archived: hidden from pickers, kept for history."
@@ -26276,6 +26379,8 @@
           "id",
           "name",
           "description",
+          "category",
+          "controlObjective",
           "archived",
           "archivedAt",
           "version"
@@ -26301,9 +26406,37 @@
           "nextCursor"
         ]
       },
+      "MappingNoteInputDto": {
+        "type": "object",
+        "properties": {
+          "frameworkId": {
+            "type": "string",
+            "description": "A framework of the catalogue. An unknown or retired id is refused with `VALIDATION_FAILED`.",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true,
+            "description": "The cell's text (up to 500 characters). Null or blank clears the cell.",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "frameworkId"
+        ]
+      },
       "CreateGovernanceAreaDto": {
         "type": "object",
         "properties": {
+          "notes": {
+            "description": "The row's own reference text per framework. Omit it to store none; a duplicate framework is refused.",
+            "uniqueItems": true,
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MappingNoteInputDto"
+            }
+          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -26313,6 +26446,16 @@
             "type": "string",
             "nullable": true,
             "maxLength": 500
+          },
+          "category": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 80
+          },
+          "controlObjective": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
           }
         },
         "required": [
@@ -26322,6 +26465,15 @@
       "UpdateGovernanceAreaDto": {
         "type": "object",
         "properties": {
+          "notes": {
+            "description": "The whole desired set of the row's reference notes: a framework absent from the list has its cell\ncleared, and omitting the key leaves every cell as it is.",
+            "uniqueItems": true,
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MappingNoteInputDto"
+            }
+          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -26331,6 +26483,18 @@
             "type": "string",
             "nullable": true,
             "maxLength": 500
+          },
+          "category": {
+            "type": "string",
+            "nullable": true,
+            "description": "Omit to keep it; send null or blank to clear the label.",
+            "maxLength": 80
+          },
+          "controlObjective": {
+            "type": "string",
+            "nullable": true,
+            "description": "Omit to keep it; send null or blank to clear the objective.",
+            "maxLength": 2000
           },
           "version": {
             "type": "number",
@@ -26599,6 +26763,31 @@
           "archived"
         ]
       },
+      "MatrixNoteDto": {
+        "type": "object",
+        "properties": {
+          "frameworkId": {
+            "type": "string"
+          },
+          "frameworkCode": {
+            "type": "string",
+            "description": "The column this cell belongs in."
+          },
+          "note": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "When the cell was last written, as an ISO timestamp."
+          }
+        },
+        "required": [
+          "frameworkId",
+          "frameworkCode",
+          "note",
+          "updatedAt"
+        ]
+      },
       "MatrixRowDto": {
         "type": "object",
         "properties": {
@@ -26615,6 +26804,16 @@
             "type": "string",
             "nullable": true
           },
+          "areaCategory": {
+            "type": "string",
+            "nullable": true,
+            "description": "The area's own category label, or null when nobody has stated one."
+          },
+          "areaControlObjective": {
+            "type": "string",
+            "nullable": true,
+            "description": "The area's own control objective, or null."
+          },
           "areaArchived": {
             "type": "boolean",
             "description": "True for an archived area that still holds mappings: it stays visible until they are archived or moved."
@@ -26625,14 +26824,24 @@
             "items": {
               "$ref": "#/components/schemas/MatrixEntryDto"
             }
+          },
+          "notes": {
+            "description": "The area's reference cells, ordered by framework. Empty for the row of unfiled mappings.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatrixNoteDto"
+            }
           }
         },
         "required": [
           "areaId",
           "areaName",
           "areaDescription",
+          "areaCategory",
+          "areaControlObjective",
           "areaArchived",
-          "entries"
+          "entries",
+          "notes"
         ]
       },
       "MappingMatrixDto": {

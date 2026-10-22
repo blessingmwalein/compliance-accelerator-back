@@ -17,6 +17,7 @@ import type {
   MappingRequirementDto,
   MappingVersionDto,
   MatrixEntryDto,
+  MatrixNoteDto,
   MatrixRowDto,
   OrganisationMappingDto,
   UpdateMappingDto,
@@ -153,6 +154,21 @@ export class ComplianceMappingsService {
         entries.push(...entriesOf(record));
         byArea.set(record.areaId, entries);
       }
+      // the row's own reference cells, grouped by area; the unfiled row has none, having no area
+      const notesByArea = new Map<string, MatrixNoteDto[]>();
+      for (const note of await this.mappings.listNotesForAreas(
+        tx,
+        page.items.map((area) => area.id),
+      )) {
+        const cells = notesByArea.get(note.areaId) ?? [];
+        cells.push({
+          frameworkId: note.frameworkId,
+          frameworkCode: note.frameworkCode,
+          note: note.note,
+          updatedAt: note.updatedAt.toISOString(),
+        });
+        notesByArea.set(note.areaId, cells);
+      }
       const rows: MatrixRowDto[] = [
         ...(unfiled
           ? [
@@ -160,8 +176,11 @@ export class ComplianceMappingsService {
                 areaId: null,
                 areaName: null,
                 areaDescription: null,
+                areaCategory: null,
+                areaControlObjective: null,
                 areaArchived: false,
                 entries: byArea.get(null) ?? [],
+                notes: [],
               },
             ]
           : []),
@@ -169,8 +188,11 @@ export class ComplianceMappingsService {
           areaId: area.id,
           areaName: area.name,
           areaDescription: area.description,
+          areaCategory: area.category,
+          areaControlObjective: area.controlObjective,
           areaArchived: area.archivedAt !== null,
           entries: byArea.get(area.id) ?? [],
+          notes: notesByArea.get(area.id) ?? [],
         })),
       ];
       return { rows, nextCursor: page.nextCursor, disclaimer: MAPPING_DISCLAIMER };

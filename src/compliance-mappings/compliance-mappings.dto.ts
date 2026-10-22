@@ -249,16 +249,36 @@ export class MatrixEntryDto {
   archived!: boolean;
 }
 
+/**
+ * One reference cell of a row: what this organisation states on the topic of that area in one framework.
+ * Free text the organisation typed itself, next to the verified requirement links of the same cell — it
+ * explains a position, it never claims a mapping.
+ */
+export class MatrixNoteDto {
+  frameworkId!: string;
+  /** The column this cell belongs in. */
+  frameworkCode!: string;
+  note!: string;
+  /** When the cell was last written, as an ISO timestamp. */
+  updatedAt!: string;
+}
+
 /** One row of the mapping table: a governance area (or the mappings that are not filed under one). */
 export class MatrixRowDto {
   /** Null for the row of mappings that are not filed under an area. */
   areaId!: string | null;
   areaName!: string | null;
   areaDescription!: string | null;
+  /** The area's own category label, or null when nobody has stated one. */
+  areaCategory!: string | null;
+  /** The area's own control objective, or null. */
+  areaControlObjective!: string | null;
   /** True for an archived area that still holds mappings: it stays visible until they are archived or moved. */
   areaArchived!: boolean;
   /** Every entry of the area's mappings; the client places each in the column of its `frameworkCode`. */
   entries!: MatrixEntryDto[];
+  /** The area's reference cells, ordered by framework. Empty for the row of unfiled mappings. */
+  notes!: MatrixNoteDto[];
 }
 
 export class MappingMatrixDto {
